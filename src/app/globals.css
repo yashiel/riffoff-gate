@@ -1,0 +1,72 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Gate app is dark-only for camera contrast */
+  --background: #0a0a0c;
+  --foreground: #f4f4f6;
+  --card: #111113;
+  --card-foreground: #f4f4f6;
+  --muted: #1a1a1e;
+  --muted-foreground: #71717a;
+  --border: rgba(255, 255, 255, 0.06);
+  --input: #1a1a1e;
+  --ring: #bfff00;
+  --coral: #bfff00;
+  --destructive: #ef4444;
+  --success: #10b981;
+  --warning: #f59e0b;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Prevent pull-to-refresh on mobile */
+html, body {
+  overscroll-behavior-y: contain;
+  overflow: hidden;
+  height: 100%;
+  height: 100dvh;
+}
+
+/* Safe area padding for notched devices */
+.safe-top { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Scanner animations */
+@keyframes flash {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* html5-qrcode overrides for dark theme */
+#qr-scanner-region video {
+  object-fit: cover !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+#qr-scanner-region {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+}
+
+#qr-scanner-region img[alt="Info icon"],
+#qr-scanner-region span {
+  display: none !important;
+}
