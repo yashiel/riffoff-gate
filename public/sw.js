@@ -1,5 +1,10 @@
-const CACHE_NAME = "riffoff-gate-v3";
+const CACHE_NAME = "riffoff-gate-v4";
 const APP_SHELL = ["/", "/scan"];
+
+// ─── Keepalive Config ───
+let keepaliveInterval = null;
+let apiBaseUrl = "";
+let sessionToken = "";
 
 // Cache app shell on install
 self.addEventListener("install", (event) => {
@@ -18,6 +23,60 @@ self.addEventListener("activate", (event) => {
   );
   self.clients.claim();
 });
+
+// ─── Message handler — receive keepalive config from the app ───
+self.addEventListener("message", (event) => {
+  const data = event.data;
+
+  if (data.type === "KEEPALIVE_START") {
+    apiBaseUrl = data.apiBaseUrl || "";
+    sessionToken = data.sessionToken || "";
+
+    // Start keepalive ping every 10 seconds
+    if (keepaliveInterval) clearInterval(keepaliveInterval);
+    keepaliveInterval = setInterval(sendKeepalive, 10000);
+    // Send first one immediately
+    sendKeepalive();
+  }
+
+  if (data.type === "KEEPALIVE_STOP") {
+    if (keepaliveInterval) clearInterval(keepaliveInterval);
+    keepaliveInterval = null;
+    sessionToken = "";
+  }
+
+  if (data.type === "KEEPALIVE_UPDATE_TOKEN") {
+    sessionToken = data.sessionToken || "";
+  }
+});
+
+async function sendKeepalive() {
+  if (!apiBaseUrl || !sessionToken) return;
+
+  try {
+    const res = await fetch(`${apiBaseUrl}/api/gate/status`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${sessionToken}`,
+        "X-Screen-Size": "sw",
+        "X-Timezone": "sw",
+        "X-Language": "sw",
+      },
+    });
+
+    // If session was revoked, notify all clients
+    if (res.status === 401 || res.status === 403) {
+      const clients = await self.clients.matchAll();
+      for (const client of clients) {
+        client.postMessage({ type: "SESSION_REVOKED" });
+      }
+      if (keepaliveInterval) clearInterval(keepaliveInterval);
+      keepaliveInterval = null;
+    }
+  } catch {
+    // Network error — keep trying, device might be temporarily offline
+  }
+}
 
 // Fetch strategy
 self.addEventListener("fetch", (event) => {
@@ -58,8 +117,6 @@ self.addEventListener("sync", (event) => {
 });
 
 async function syncCheckIns() {
-  // Sync logic handled by the app's sync-queue module
-  // This just triggers a message to the client
   const clients = await self.clients.matchAll();
   for (const client of clients) {
     client.postMessage({ type: "SYNC_TRIGGER" });

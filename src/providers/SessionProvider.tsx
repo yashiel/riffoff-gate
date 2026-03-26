@@ -75,21 +75,39 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     verify();
 
-    // Start keepalive interval — pings server every 10s to update lastSeenAt
+    // Register keepalive with Service Worker (runs even when app is minimized)
+    const token = getSessionToken();
+    if (token && "serviceWorker" in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: "KEEPALIVE_START",
+        apiBaseUrl: process.env.NEXT_PUBLIC_API_URL || "",
+        sessionToken: token,
+      });
+
+      // Listen for session revocation from SW
+      navigator.serviceWorker.addEventListener("message", (event) => {
+        if (event.data?.type === "SESSION_REVOKED") {
+          clearSession();
+          setSession(null);
+          if (typeof window !== "undefined") window.location.href = "/";
+        }
+      });
+    }
+
+    // Also keep a foreground interval as fallback (SW may not be active yet)
     keepaliveRef.current = setInterval(async () => {
-      const token = getSessionToken();
-      if (!token) return;
+      const t = getSessionToken();
+      if (!t) return;
 
       try {
         const res = await gateApi("/api/gate/status");
         if (!res.ok && (res.status === 401 || res.status === 403)) {
-          // Session revoked by organiser — auto-logout
           clearSession();
           setSession(null);
           if (typeof window !== "undefined") window.location.href = "/";
         }
       } catch {
-        // Network error — keep trying, don't logout (might be temporary)
+        // Network error — keep trying
       }
     }, KEEPALIVE_INTERVAL_MS);
 
@@ -99,8 +117,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     };
   }, [router]);
 
-  // Logout — notify server to revoke session, then clear locally
+  // Logout — notify server to revoke session, stop keepalive, clear locally
   const logout = useCallback(async () => {
+    // Stop SW keepalive
+    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: "KEEPALIVE_STOP" });
+    }
+
     // Notify server to revoke this session
     try {
       await gateApi("/api/gate/logout", { method: "POST" });
