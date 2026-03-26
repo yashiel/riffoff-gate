@@ -43,19 +43,13 @@ export function QROnboarding() {
       await stopScanner();
       setState("processing");
 
-      let payload: unknown;
       try {
-        payload = JSON.parse(decodedText);
-      } catch {
-        setState("error");
-        setErrorMessage("Invalid QR code format. Please scan a valid gate QR code.");
-        return;
-      }
-
-      try {
+        // The QR contains a base64-encoded signed payload.
+        // Send it as the 'payload' field — the server decodes and verifies it.
+        const deviceId = getDeviceId();
         const res = await gateApi("/api/gate/auth/qr", {
           method: "POST",
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ payload: decodedText, deviceId }),
         });
 
         if (!res.ok) {
