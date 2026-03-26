@@ -106,8 +106,9 @@ export function InfoSheet({ open, onClose, onLogout, session }: InfoSheetProps) 
       const nav = navigator as unknown as { getBattery?: () => Promise<{ level: number; charging: boolean }> };
       if (nav.getBattery) {
         nav.getBattery().then((bat) => {
+          const level = bat.level != null && !isNaN(bat.level) ? Math.round(bat.level * 100) : null;
           setBatteryInfo({
-            level: `${Math.round(bat.level * 100)}%`,
+            level: level != null ? `${level}%` : "—",
             charging: bat.charging ? "Charging" : "On battery",
           });
         }).catch(() => {});
