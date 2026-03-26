@@ -46,15 +46,21 @@ export function QROnboarding() {
       try {
         const deviceId = getDeviceId();
 
-        // QR contains compact JSON: { p: pin, g: gateId, e: eventId }
-        // Use PIN auth endpoint directly — same flow, simpler
+        // QR format: "RO:123456" (ultra-compact, 9 chars)
+        // Also supports legacy JSON: { p: pin, g: gateId }
         let pin = decodedText;
-        let gateId = "default";
-        try {
-          const parsed = JSON.parse(decodedText);
-          if (parsed.p) { pin = parsed.p; gateId = parsed.g || "default"; }
-        } catch {
-          // Not JSON — treat entire text as a legacy base64 payload
+        const gateId = "default";
+
+        if (decodedText.startsWith("RO:")) {
+          // Ultra-compact format
+          pin = decodedText.slice(3);
+        } else {
+          try {
+            const parsed = JSON.parse(decodedText);
+            if (parsed.p) pin = parsed.p;
+          } catch {
+            // Raw text — use as-is (could be a plain PIN)
+          }
         }
 
         const res = await gateApi("/api/gate/auth/pin", {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "riffoff-gate-v1";
+const CACHE_NAME = "riffoff-gate-v3";
 const APP_SHELL = ["/", "/scan"];
 
 // Cache app shell on install
