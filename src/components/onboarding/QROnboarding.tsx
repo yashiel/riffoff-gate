@@ -44,12 +44,22 @@ export function QROnboarding() {
       setState("processing");
 
       try {
-        // The QR contains a base64-encoded signed payload.
-        // Send it as the 'payload' field — the server decodes and verifies it.
         const deviceId = getDeviceId();
-        const res = await gateApi("/api/gate/auth/qr", {
+
+        // QR contains compact JSON: { p: pin, g: gateId, e: eventId }
+        // Use PIN auth endpoint directly — same flow, simpler
+        let pin = decodedText;
+        let gateId = "default";
+        try {
+          const parsed = JSON.parse(decodedText);
+          if (parsed.p) { pin = parsed.p; gateId = parsed.g || "default"; }
+        } catch {
+          // Not JSON — treat entire text as a legacy base64 payload
+        }
+
+        const res = await gateApi("/api/gate/auth/pin", {
           method: "POST",
-          body: JSON.stringify({ payload: decodedText, deviceId }),
+          body: JSON.stringify({ pin, gateId, deviceId }),
         });
 
         if (!res.ok) {
