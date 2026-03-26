@@ -8,6 +8,7 @@ import type { ScanResultData } from "@/components/scanner/ScanResult";
 import { ScanStats } from "@/components/scanner/ScanStats";
 import { FullScreenFlash } from "@/components/scanner/FullScreenFlash";
 import { StatusBar } from "@/components/shared/StatusBar";
+import { BroadcastBanner } from "@/components/shared/BroadcastBanner";
 import { BottomNav } from "@/components/shared/BottomNav";
 import type { ActiveSheet } from "@/components/shared/BottomNav";
 import { HistorySheet, addToHistory } from "@/components/shared/HistorySheet";
@@ -151,6 +152,7 @@ export default function ScanPage() {
       {/* Camera viewport */}
       <div className="relative flex-1 overflow-hidden">
         <QRViewport onScan={handleScan} active={activeSheet === "scan"} />
+        <BroadcastBanner />
         <ScanResult result={scanResult} onDismiss={handleDismissResult} />
       </div>
 
