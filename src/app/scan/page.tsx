@@ -126,7 +126,11 @@ export default function ScanPage() {
     setScanResult(null);
   }, []);
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
+    // Notify server to revoke session (removes from Gate Control device list)
+    try {
+      await gateApi("/api/gate/logout", { method: "POST" });
+    } catch { /* still logout locally */ }
     clearSession();
     router.replace("/");
   }, [router]);
