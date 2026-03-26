@@ -15,24 +15,18 @@ type ScanState =
 
 export function QROnboarding() {
   const router = useRouter();
-  const scannerRef = useRef<InstanceType<
-    typeof import("html5-qrcode").Html5Qrcode
-  > | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const scanningRef = useRef(false);
   const [state, setState] = useState<ScanState>("initializing");
   const [errorMessage, setErrorMessage] = useState("");
   const mountedRef = useRef(true);
 
-  const stopScanner = useCallback(async () => {
-    if (scannerRef.current) {
-      try {
-        const scanState = scannerRef.current.getState();
-        if (scanState === 2 || scanState === 3) {
-          await scannerRef.current.stop();
-        }
-      } catch {
-        // Scanner may already be stopped
-      }
-      scannerRef.current = null;
+  const stopCamera = useCallback(() => {
+    scanningRef.current = false;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
     }
   }, []);
 
@@ -40,26 +34,24 @@ export function QROnboarding() {
     async (decodedText: string) => {
       if (!mountedRef.current) return;
 
-      await stopScanner();
+      stopCamera();
       setState("processing");
 
       try {
         const deviceId = getDeviceId();
 
-        // QR format: "RO:123456" (ultra-compact, 9 chars)
-        // Also supports legacy JSON: { p: pin, g: gateId }
+        // Parse QR: "RO:PIN" format, JSON, or raw text
         let pin = decodedText;
         const gateId = "default";
 
         if (decodedText.startsWith("RO:")) {
-          // Ultra-compact format
           pin = decodedText.slice(3);
         } else {
           try {
             const parsed = JSON.parse(decodedText);
             if (parsed.p) pin = parsed.p;
           } catch {
-            // Raw text — use as-is (could be a plain PIN)
+            // Use raw text as PIN
           }
         }
 
@@ -86,7 +78,7 @@ export function QROnboarding() {
         );
       }
     },
-    [router, stopScanner]
+    [router, stopCamera]
   );
 
   const startScanner = useCallback(async () => {
@@ -94,42 +86,83 @@ export function QROnboarding() {
     setErrorMessage("");
 
     try {
-      const { Html5Qrcode } = await import("html5-qrcode");
-
-      if (!mountedRef.current) return;
-
-      const scanner = new Html5Qrcode("qr-reader", {
-        verbose: false,
+      // Request camera
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
       });
-      scannerRef.current = scanner;
 
-      const CAMERA_TIMEOUT_MS = 8000;
-      const cameraPromise = scanner.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 220, height: 220 },
-        },
-        (decodedText) => {
-          void handleDecode(decodedText);
-        },
-        () => {}
-      );
+      if (!mountedRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
 
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Camera start timed out")), CAMERA_TIMEOUT_MS)
-      );
+      streamRef.current = stream;
 
-      await Promise.race([cameraPromise, timeoutPromise]);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
 
-      if (mountedRef.current) {
-        setState("scanning");
+      setState("scanning");
+      scanningRef.current = true;
+
+      // Use BarcodeDetector if available (Chrome, Edge, Samsung Internet)
+      const hasBarcodeDetector = "BarcodeDetector" in window;
+
+      if (hasBarcodeDetector) {
+        // Native BarcodeDetector — fastest, most reliable
+        const detector = new (window as unknown as { BarcodeDetector: new (opts: { formats: string[] }) => { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> } }).BarcodeDetector({
+          formats: ["qr_code"],
+        });
+
+        const scanLoop = async () => {
+          if (!scanningRef.current || !videoRef.current || !mountedRef.current) return;
+
+          try {
+            const barcodes = await detector.detect(videoRef.current);
+            if (barcodes.length > 0) {
+              scanningRef.current = false;
+              void handleDecode(barcodes[0].rawValue);
+              return;
+            }
+          } catch {
+            // Detection failed this frame — continue
+          }
+
+          if (scanningRef.current) {
+            requestAnimationFrame(scanLoop);
+          }
+        };
+
+        requestAnimationFrame(scanLoop);
+      } else {
+        // Fallback: html5-qrcode for browsers without BarcodeDetector (Firefox, older Safari)
+        const { Html5Qrcode } = await import("html5-qrcode");
+
+        // Stop the getUserMedia stream since html5-qrcode manages its own
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+
+        const el = document.getElementById("qr-fallback");
+        if (!el) return;
+
+        const scanner = new Html5Qrcode("qr-fallback", { verbose: false });
+
+        await scanner.start(
+          { facingMode: "environment" },
+          { fps: 15, qrbox: { width: 250, height: 250 } },
+          (text) => {
+            scanningRef.current = false;
+            scanner.stop().catch(() => {});
+            void handleDecode(text);
+          },
+          () => {}
+        );
       }
     } catch (err) {
       if (!mountedRef.current) return;
 
-      const message =
-        err instanceof Error ? err.message.toLowerCase() : "";
+      const message = err instanceof Error ? err.message.toLowerCase() : "";
       if (
         message.includes("permission") ||
         message.includes("notallowed") ||
@@ -139,7 +172,7 @@ export function QROnboarding() {
       } else {
         setState("error");
         setErrorMessage(
-          message.includes("timed out")
+          message.includes("timed out") || message.includes("overconstrained")
             ? "Camera not available. Try using PIN entry instead."
             : "Failed to start camera. Please check your device settings."
         );
@@ -149,31 +182,39 @@ export function QROnboarding() {
 
   useEffect(() => {
     mountedRef.current = true;
-    const deviceId = getDeviceId();
-    void deviceId;
     void startScanner();
 
     return () => {
       mountedRef.current = false;
-      void stopScanner();
+      stopCamera();
     };
-  }, [startScanner, stopScanner]);
+  }, [startScanner, stopCamera]);
 
   return (
     <div className="flex flex-col items-center gap-4 w-full">
-      {/* Camera viewport with corner brackets */}
-      <div className="qr-viewport w-full aspect-[4/3] max-h-[280px] rounded-2xl relative">
+      {/* Camera viewport */}
+      <div className="qr-viewport w-full aspect-[4/3] max-h-[320px] rounded-2xl relative overflow-hidden bg-black">
         {/* Corner brackets */}
         <div className="qr-corner-tr" />
         <div className="qr-corner-bl" />
 
-        {/* Scan line (only when scanning) */}
+        {/* Scan line animation */}
         {state === "scanning" && <div className="qr-scanline" />}
 
-        {/* QR reader mount point */}
+        {/* Native video element for BarcodeDetector */}
+        <video
+          ref={videoRef}
+          className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+          playsInline
+          muted
+          autoPlay
+        />
+
+        {/* Fallback container for html5-qrcode */}
         <div
-          id="qr-reader"
+          id="qr-fallback"
           className="absolute inset-0 rounded-2xl overflow-hidden"
+          style={{ display: "BarcodeDetector" in (typeof window !== "undefined" ? window : {}) ? "none" : "block" }}
         />
 
         {/* Overlay for non-scanning states */}
@@ -187,7 +228,7 @@ export function QROnboarding() {
         {state === "initializing" && (
           <div className="flex items-center gap-2.5">
             <div className="size-4 rounded-full gate-spinner animate-spin" />
-            <span className="text-[15px] text-[var(--muted-foreground)]">
+            <span className="text-base text-[var(--muted-foreground)]">
               Starting camera...
             </span>
           </div>
@@ -202,7 +243,7 @@ export function QROnboarding() {
         {state === "processing" && (
           <div className="flex items-center gap-2.5">
             <div className="size-4 rounded-full gate-spinner animate-spin" />
-            <span className="text-[15px] text-[var(--coral)]">
+            <span className="text-base text-[var(--coral)]">
               Creating session...
             </span>
           </div>
@@ -212,15 +253,15 @@ export function QROnboarding() {
           <div className="flex flex-col items-center gap-3 text-center">
             <div className="flex items-center gap-2 text-[var(--warning)]">
               <ShieldAlert className="size-4" />
-              <span className="text-[15px] font-medium">Camera access needed</span>
+              <span className="text-base font-medium">Camera access needed</span>
             </div>
             <p className="text-sm text-[var(--muted-foreground)] max-w-[260px]">
-              Check your browser settings and grant camera permission for this site
+              Check your browser settings and grant camera permission
             </p>
             <button
               type="button"
               onClick={() => void startScanner()}
-              className="btn-retry min-h-[40px] px-5 rounded-xl text-[15px] font-medium flex items-center gap-2"
+              className="btn-retry min-h-[44px] px-5 rounded-xl text-base font-medium flex items-center gap-2"
             >
               <RefreshCw className="size-3.5" />
               Retry
@@ -230,14 +271,14 @@ export function QROnboarding() {
 
         {state === "error" && (
           <div className="flex flex-col items-center gap-3 text-center">
-            <p className="text-[15px] text-[var(--destructive)] flex items-center gap-2">
+            <p className="text-base text-[var(--destructive)] flex items-center gap-2">
               <Camera className="size-3.5 shrink-0" />
               {errorMessage}
             </p>
             <button
               type="button"
               onClick={() => void startScanner()}
-              className="btn-retry min-h-[40px] px-5 rounded-xl text-[15px] font-medium flex items-center gap-2"
+              className="btn-retry min-h-[44px] px-5 rounded-xl text-base font-medium flex items-center gap-2"
             >
               <RefreshCw className="size-3.5" />
               Try Again
