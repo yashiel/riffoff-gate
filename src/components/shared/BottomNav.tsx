@@ -21,6 +21,7 @@ export function BottomNav({ active, onChange }: BottomNavProps) {
       className="flex shrink-0 border-t border-[var(--border)] bg-[var(--card)]"
       role="tablist"
       aria-label="Scanner navigation"
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       {TABS.map((tab) => {
         const isActive = active === tab.id;
@@ -31,14 +32,14 @@ export function BottomNav({ active, onChange }: BottomNavProps) {
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(tab.id)}
-            className={`flex flex-1 flex-col items-center gap-0.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 transition-colors ${
+            className={`flex flex-1 flex-col items-center gap-1 pb-2 pt-2.5 transition-colors ${
               isActive
                 ? "text-[var(--coral)]"
                 : "text-[var(--muted-foreground)]"
             }`}
           >
             <Icon className="size-5" aria-hidden="true" />
-            <span className="text-[13px] font-medium">{tab.label}</span>
+            <span className="text-sm font-medium">{tab.label}</span>
           </button>
         );
       })}
