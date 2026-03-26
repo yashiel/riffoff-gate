@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0a0a0c"/>
+  <rect x="24" y="24" width="464" height="464" rx="80" fill="#0f0f12"/>
+  <text x="256" y="220" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="120" font-weight="800" fill="#bfff00">R</text>
+  <text x="256" y="340" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="48" font-weight="700" letter-spacing="8" fill="#f0f0f2">GATE</text>
+  <rect x="166" y="360" width="180" height="3" rx="1.5" fill="#bfff00" opacity="0.4"/>
+</svg>

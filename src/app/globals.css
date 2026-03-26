@@ -5,25 +5,29 @@
 
 :root {
   /* Gate app is dark-only for camera contrast */
-  --background: #0a0a0c;
-  --foreground: #f4f4f6;
-  --card: #111113;
-  --card-foreground: #f4f4f6;
-  --muted: #1a1a1e;
-  --muted-foreground: #71717a;
+  --background: #050507;
+  --foreground: #f0f0f2;
+  --card: #0d0d10;
+  --card-foreground: #f0f0f2;
+  --muted: #131316;
+  --muted-foreground: #8a8a96;
   --border: rgba(255, 255, 255, 0.06);
-  --input: #1a1a1e;
+  --input: #131316;
   --ring: #bfff00;
   --coral: #bfff00;
-  --destructive: #ef4444;
-  --success: #10b981;
-  --warning: #f59e0b;
+  --destructive: #ff3b5c;
+  --success: #00e676;
+  --warning: #ffab00;
+  --glow: rgba(191, 255, 0, 0.15);
+  --glow-strong: rgba(191, 255, 0, 0.35);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
   user-select: none;
@@ -42,7 +46,228 @@ html, body {
 .safe-top { padding-top: env(safe-area-inset-top); }
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
-/* Scanner animations */
+/* ─── Ambient Background ─── */
+.gate-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(191, 255, 0, 0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 50% at 20% 100%, rgba(191, 255, 0, 0.02) 0%, transparent 60%),
+    var(--background);
+}
+
+/* Subtle noise texture */
+.gate-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 256px;
+  pointer-events: none;
+}
+
+/* ─── Logo Glow ─── */
+.logo-glow {
+  text-shadow: 0 0 20px var(--glow), 0 0 60px rgba(191, 255, 0, 0.06);
+}
+
+/* ─── Tab Switcher ─── */
+.tab-container {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+}
+
+.tab-active {
+  background: rgba(191, 255, 0, 0.08);
+  border: 1px solid rgba(191, 255, 255, 0.08);
+  color: var(--foreground);
+  box-shadow:
+    0 0 12px rgba(191, 255, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.tab-inactive {
+  color: var(--muted-foreground);
+  border: 1px solid transparent;
+}
+
+.tab-inactive:hover {
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ─── Glass Card ─── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ─── PIN Input ─── */
+.pin-input {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  caret-color: var(--coral);
+}
+
+.pin-input:focus {
+  border-color: rgba(191, 255, 0, 0.4);
+  box-shadow: 0 0 0 3px rgba(191, 255, 0, 0.08), 0 0 20px rgba(191, 255, 0, 0.06);
+  outline: none;
+}
+
+.pin-input::placeholder {
+  color: rgba(255, 255, 255, 0.12);
+  letter-spacing: 0.5em;
+}
+
+/* ─── Connect Button ─── */
+.btn-connect {
+  background: linear-gradient(135deg, #bfff00 0%, #a0e000 100%);
+  color: #050507;
+  font-weight: 600;
+  border: none;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.btn-connect::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(255, 255, 255, 0.2) 50%, transparent 60%);
+  transform: translateX(-100%);
+  transition: transform 0.5s;
+}
+
+.btn-connect:hover::before {
+  transform: translateX(100%);
+}
+
+.btn-connect:active {
+  transform: scale(0.97);
+}
+
+.btn-connect:disabled {
+  background: rgba(191, 255, 0, 0.1);
+  color: rgba(191, 255, 0, 0.3);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-connect:not(:disabled) {
+  box-shadow: 0 0 20px rgba(191, 255, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Retry / Secondary Button ─── */
+.btn-retry {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--foreground);
+  backdrop-filter: blur(8px);
+  transition: all 0.2s;
+}
+
+.btn-retry:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.btn-retry:active {
+  transform: scale(0.95);
+}
+
+/* ─── QR Viewport ─── */
+.qr-viewport {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1.5px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Animated corner brackets */
+.qr-viewport::before,
+.qr-viewport::after {
+  content: "";
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-color: var(--coral);
+  border-style: solid;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.qr-viewport::before {
+  top: 12px;
+  left: 12px;
+  border-width: 2px 0 0 2px;
+  border-radius: 4px 0 0 0;
+}
+
+.qr-viewport::after {
+  bottom: 12px;
+  right: 12px;
+  border-width: 0 2px 2px 0;
+  border-radius: 0 0 4px 0;
+}
+
+.qr-corner-tr,
+.qr-corner-bl {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-color: var(--coral);
+  border-style: solid;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.qr-corner-tr {
+  top: 12px;
+  right: 12px;
+  border-width: 2px 2px 0 0;
+  border-radius: 0 4px 0 0;
+}
+
+.qr-corner-bl {
+  bottom: 12px;
+  left: 12px;
+  border-width: 0 0 2px 2px;
+  border-radius: 0 0 0 4px;
+}
+
+/* Scan line animation */
+@keyframes scanline {
+  0%, 100% { top: 12px; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  50% { top: calc(100% - 40px); }
+}
+
+.qr-scanline {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--coral), transparent);
+  z-index: 10;
+  animation: scanline 2.5s ease-in-out infinite;
+  box-shadow: 0 0 12px var(--glow-strong);
+  pointer-events: none;
+}
+
+/* ─── Scanner animations ─── */
 @keyframes flash {
   from { opacity: 1; }
   to { opacity: 0; }
@@ -53,7 +278,82 @@ html, body {
   to { transform: translateY(0); opacity: 1; }
 }
 
-/* html5-qrcode overrides for dark theme */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+/* ─── Spinner ─── */
+.gate-spinner {
+  border: 2px solid rgba(191, 255, 0, 0.15);
+  border-top-color: var(--coral);
+}
+
+/* ─── Status Badge ─── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+}
+
+.status-badge::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+}
+
+/* ─── html5-qrcode overrides ─── */
+#qr-reader video {
+  object-fit: cover !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 16px;
+}
+
+#qr-reader {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+}
+
+#qr-reader img[alt="Info icon"],
+#qr-reader span,
+#qr-reader br {
+  display: none !important;
+}
+
+/* Hide the library's built-in scan region overlay (white corners + shaded border) */
+#qr-reader__scan_region {
+  position: relative !important;
+}
+
+#qr-reader__scan_region > img,
+#qr-reader__scan_region > div:not(:has(video)) {
+  display: none !important;
+}
+
+/* Hide the library's built-in shaded region and corner markers */
+#qr-shaded-region {
+  display: none !important;
+}
+
+/* Also target any canvas overlay the library creates */
+#qr-reader canvas,
+#qr-reader__dashboard_section {
+  display: none !important;
+}
+
 #qr-scanner-region video {
   object-fit: cover !important;
   width: 100% !important;
@@ -68,5 +368,11 @@ html, body {
 
 #qr-scanner-region img[alt="Info icon"],
 #qr-scanner-region span {
+  display: none !important;
+}
+
+/* Hide any scan region shading/corners from the library */
+[id*="qr-shaded-region"],
+[id*="qr_shaded_region"] {
   display: none !important;
 }

@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2, ArrowRight } from "lucide-react";
 import { setSession, getDeviceId } from "@/lib/session/store";
 import { gateApi } from "@/lib/api/client";
 
@@ -55,81 +56,113 @@ export function PINOnboarding() {
       setSession(session);
       router.push("/scan");
     } catch (err) {
-      if (!error) {
-        setError(
-          err instanceof Error ? err.message : "Connection failed. Please try again."
-        );
-      }
+      setError(
+        err instanceof Error ? err.message : "Connection failed. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }
   }
 
+  const filled = pin.length;
+  const progressPercent = (filled / 6) * 100;
+
   return (
     <form
       onSubmit={(e) => void handleSubmit(e)}
-      className="flex flex-col items-center gap-6 w-full max-w-[320px]"
+      className="flex flex-col items-center gap-5 w-full"
     >
-      <div className="w-full flex flex-col gap-2">
-        <label
-          htmlFor="gate-pin"
-          className="text-sm font-medium text-neutral-300"
+      {/* PIN Input Section */}
+      <div className="w-full flex flex-col gap-2.5">
+        <div className="flex items-center justify-between">
+          <label
+            htmlFor="gate-pin"
+            className="text-sm font-semibold uppercase tracking-[0.15em] text-[var(--muted-foreground)]"
+          >
+            Access Code
+          </label>
+          <span className="text-[13px] font-mono tabular-nums text-[var(--muted-foreground)]">
+            {filled}/6
+          </span>
+        </div>
+
+        {/* Input with progress bar */}
+        <div className="relative">
+          <input
+            id="gate-pin"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9A-Za-z]{6}"
+            maxLength={6}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="● ● ● ● ● ●"
+            value={pin}
+            onChange={(e) => {
+              const value = e.target.value.replace(/[^0-9A-Za-z]/g, "");
+              setPin(value.slice(0, 6).toUpperCase());
+              if (error) setError("");
+            }}
+            disabled={isLoading}
+            className="pin-input h-[52px] w-full rounded-xl
+              px-4 text-center text-xl font-mono font-bold tracking-[0.4em] text-[var(--foreground)]
+              disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-describedby={error ? "pin-error" : "pin-hint"}
+            aria-invalid={!!error}
+            required
+          />
+          {/* Progress indicator at bottom of input */}
+          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/5 rounded-b-xl overflow-hidden">
+            <div
+              className="h-full bg-[var(--coral)] transition-all duration-300 ease-out"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
+
+        <p
+          id="pin-hint"
+          className="text-sm text-[var(--muted-foreground)] transition-colors"
         >
-          Gate PIN
-        </label>
-        <input
-          id="gate-pin"
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9A-Za-z]{6}"
-          maxLength={6}
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          placeholder="000000"
-          value={pin}
-          onChange={(e) => {
-            const value = e.target.value.replace(/[^0-9A-Za-z]/g, "");
-            setPin(value.slice(0, 6).toUpperCase());
-            if (error) setError("");
-          }}
-          disabled={isLoading}
-          className="h-[44px] w-full rounded-xl border border-neutral-700 bg-neutral-900
-            px-4 text-center text-lg font-mono tracking-[0.3em] text-white
-            placeholder:text-neutral-600
-            focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent
-            disabled:opacity-50 disabled:cursor-not-allowed
-            transition-colors"
-          aria-describedby={error ? "pin-error" : undefined}
-          aria-invalid={!!error}
-        />
+          {pin.length > 0 && pin.length < 6
+            ? `${6 - pin.length} more character${6 - pin.length > 1 ? "s" : ""} needed`
+            : "Enter the 6-character code from your organiser"}
+        </p>
       </div>
 
+      {/* Error message */}
       {error && (
-        <p
+        <div
           id="pin-error"
           role="alert"
-          className={`text-sm text-center ${retryAfter ? "text-amber-400" : "text-red-400"}`}
+          className={`w-full rounded-lg px-3 py-2.5 text-[15px] text-center ${
+            retryAfter
+              ? "bg-[var(--warning)]/10 border border-[var(--warning)]/20 text-[var(--warning)]"
+              : "bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 text-[var(--destructive)]"
+          }`}
         >
           {error}
-        </p>
+        </div>
       )}
 
+      {/* Connect button */}
       <button
         type="submit"
         disabled={isLoading || pin.length !== 6}
-        className="h-[44px] w-full rounded-xl bg-white text-black font-medium text-sm
-          disabled:opacity-40 disabled:cursor-not-allowed
-          active:scale-[0.97] transition-all
+        className="btn-connect min-h-[48px] w-full rounded-xl text-[15px]
           flex items-center justify-center gap-2"
       >
         {isLoading ? (
           <>
-            <div className="size-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+            <Loader2 className="size-4 animate-spin" />
             Connecting...
           </>
         ) : (
-          "Connect"
+          <>
+            Connect
+            <ArrowRight className="size-4" />
+          </>
         )}
       </button>
     </form>

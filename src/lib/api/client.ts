@@ -24,7 +24,9 @@ export async function gateApi(
     credentials: "include",
   });
 
-  if (res.status === 401 || res.status === 403) {
+  // Only redirect on auth failure for session-protected endpoints, not auth endpoints
+  const isAuthEndpoint = path.includes("/auth/");
+  if ((res.status === 401 || res.status === 403) && !isAuthEndpoint) {
     clearSession();
     if (typeof window !== "undefined") window.location.href = "/";
     throw new Error("Session expired");

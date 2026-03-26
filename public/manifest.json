@@ -1,15 +1,21 @@
 {
-  "name": "RiffOff Gate",
-  "short_name": "Gate",
-  "description": "Scan and validate event tickets",
+  "name": "RiffOff Gate Scanner",
+  "short_name": "RiffOff Gate",
+  "description": "Venue check-in and ticket scanning terminal",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0a0a0c",
-  "theme_color": "#0a0a0c",
+  "background_color": "#050507",
+  "theme_color": "#050507",
   "scope": "/",
   "start_url": "/",
+  "id": "/",
+  "categories": ["utilities", "entertainment"],
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
-  ]
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
 }

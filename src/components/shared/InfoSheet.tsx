@@ -27,7 +27,7 @@ export function InfoSheet({ open, onClose, onLogout, session }: InfoSheetProps) 
       <div className="rounded-t-2xl bg-[var(--card)] motion-safe:animate-[slideUp_200ms_ease-out]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-          <h2 className="text-sm font-semibold text-[var(--foreground)]">
+          <h2 className="text-[15px] font-semibold text-[var(--foreground)]">
             Session Info
           </h2>
           <button
@@ -54,7 +54,7 @@ export function InfoSheet({ open, onClose, onLogout, session }: InfoSheetProps) 
         <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button
             onClick={onLogout}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--destructive)]/10 py-3 text-sm font-semibold text-[var(--destructive)] transition-colors active:bg-[var(--destructive)]/20"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--destructive)]/10 py-3 text-[15px] font-semibold text-[var(--destructive)] transition-colors active:bg-[var(--destructive)]/20"
           >
             <LogOut className="size-4" aria-hidden="true" />
             Log Out
@@ -68,8 +68,8 @@ export function InfoSheet({ open, onClose, onLogout, session }: InfoSheetProps) 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between py-3">
-      <span className="text-xs text-[var(--muted-foreground)]">{label}</span>
-      <span className="text-xs font-medium text-[var(--foreground)]">
+      <span className="text-[13px] text-[var(--muted-foreground)]">{label}</span>
+      <span className="text-[13px] font-medium text-[var(--foreground)]">
         {value}
       </span>
     </div>

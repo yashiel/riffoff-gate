@@ -40,18 +40,18 @@ export function StatusBar({ status, gateName, rate, pendingSync }: StatusBarProp
           aria-hidden="true"
         />
         <Icon className="size-3.5 text-[var(--muted-foreground)]" aria-hidden="true" />
-        <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
+        <span className="text-[13px] font-medium uppercase tracking-wider text-[var(--muted-foreground)]">
           {config.label}
         </span>
       </div>
 
       {/* Center: gate name */}
-      <span className="max-w-[40%] truncate text-xs font-semibold text-[var(--foreground)]">
+      <span className="max-w-[40%] truncate text-[13px] font-semibold text-[var(--foreground)]">
         {gateName}
       </span>
 
       {/* Right: throughput + pending */}
-      <div className="flex items-center gap-2 text-[10px] text-[var(--muted-foreground)]">
+      <div className="flex items-center gap-2 text-[13px] text-[var(--muted-foreground)]">
         <span className="tabular-nums">{rate}/min</span>
         {pendingSync > 0 && (
           <span className="flex items-center gap-1 text-[var(--warning)]">

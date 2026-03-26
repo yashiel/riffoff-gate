@@ -38,7 +38,7 @@ export function BottomNav({ active, onChange }: BottomNavProps) {
             }`}
           >
             <Icon className="size-5" aria-hidden="true" />
-            <span className="text-[10px] font-medium">{tab.label}</span>
+            <span className="text-[13px] font-medium">{tab.label}</span>
           </button>
         );
       })}

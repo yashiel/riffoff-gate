@@ -44,6 +44,7 @@ export function QRViewport({ onScan, active }: QRViewportProps) {
       stop: () => Promise<void>;
       clear: () => void;
     } | null = null;
+    let started = false;
 
     async function initScanner() {
       try {
@@ -65,6 +66,7 @@ export function QRViewport({ onScan, active }: QRViewportProps) {
           handleScan,
           () => {}
         );
+        started = true;
         setCameraReady(true);
       } catch {
         setPermissionDenied(true);
@@ -74,9 +76,9 @@ export function QRViewport({ onScan, active }: QRViewportProps) {
     initScanner();
 
     return () => {
-      if (html5QrCode) {
+      if (html5QrCode && started) {
         html5QrCode.stop().catch(() => {});
-        html5QrCode.clear();
+        try { html5QrCode.clear(); } catch { /* scanner element may already be removed */ }
       }
       scannerRef.current = null;
       setCameraReady(false);
@@ -89,7 +91,7 @@ export function QRViewport({ onScan, active }: QRViewportProps) {
         <div className="absolute inset-0 z-10 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3">
             <div className="size-8 animate-spin rounded-full border-2 border-[var(--muted-foreground)] border-t-[var(--coral)]" />
-            <p className="text-xs text-[var(--muted-foreground)]">
+            <p className="text-[13px] text-[var(--muted-foreground)]">
               Starting camera...
             </p>
           </div>
@@ -98,10 +100,10 @@ export function QRViewport({ onScan, active }: QRViewportProps) {
       {permissionDenied && (
         <div className="absolute inset-0 z-10 flex items-center justify-center px-8">
           <div className="text-center">
-            <p className="text-sm font-medium text-[var(--foreground)]">
+            <p className="text-[15px] font-medium text-[var(--foreground)]">
               Camera access required
             </p>
-            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+            <p className="mt-1 text-[13px] text-[var(--muted-foreground)]">
               Allow camera permission in your browser settings to scan tickets.
             </p>
           </div>

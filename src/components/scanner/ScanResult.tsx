@@ -57,15 +57,15 @@ export function ScanResult({ result, onDismiss }: ScanResultProps) {
       <div className="flex items-start gap-3">
         {config.icon}
         <div className="min-w-0 flex-1 text-left">
-          <p className="text-sm font-bold">{config.label}</p>
+          <p className="text-[15px] font-bold">{config.label}</p>
           {result.status === "valid" && (
             <>
               {result.attendeeName && (
-                <p className="truncate text-sm opacity-90">
+                <p className="truncate text-[15px] opacity-90">
                   {result.attendeeName}
                 </p>
               )}
-              <div className="mt-1 flex items-center gap-2 text-xs opacity-75">
+              <div className="mt-1 flex items-center gap-2 text-[13px] opacity-75">
                 {result.ticketCode && <span>{result.ticketCode}</span>}
                 {result.tierName && (
                   <>
@@ -77,7 +77,7 @@ export function ScanResult({ result, onDismiss }: ScanResultProps) {
             </>
           )}
           {result.status !== "valid" && result.reason && (
-            <p className="mt-0.5 text-sm opacity-90">{result.reason}</p>
+            <p className="mt-0.5 text-[15px] opacity-90">{result.reason}</p>
           )}
         </div>
       </div>

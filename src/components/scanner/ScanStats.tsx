@@ -11,7 +11,7 @@ export function ScanStats({ checkedIn, total }: ScanStatsProps) {
 
   return (
     <div className="shrink-0 border-t border-[var(--border)] bg-[var(--card)] px-4 py-3">
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between text-[13px]">
         <span className="font-semibold tabular-nums text-[var(--foreground)]">
           {checkedIn.toLocaleString()} / {total.toLocaleString()}
         </span>

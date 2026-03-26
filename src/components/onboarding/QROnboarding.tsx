@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Camera, RefreshCw, ShieldAlert } from "lucide-react";
 import { setSession, getDeviceId } from "@/lib/session/store";
 import { gateApi } from "@/lib/api/client";
 
@@ -25,7 +26,6 @@ export function QROnboarding() {
     if (scannerRef.current) {
       try {
         const scanState = scannerRef.current.getState();
-        // Html5QrcodeScannerState: 2 = SCANNING, 3 = PAUSED
         if (scanState === 2 || scanState === 3) {
           await scannerRef.current.stop();
         }
@@ -93,19 +93,24 @@ export function QROnboarding() {
       });
       scannerRef.current = scanner;
 
-      await scanner.start(
+      const CAMERA_TIMEOUT_MS = 8000;
+      const cameraPromise = scanner.start(
         { facingMode: "environment" },
         {
           fps: 10,
-          qrbox: { width: 250, height: 250 },
+          qrbox: { width: 220, height: 220 },
         },
         (decodedText) => {
           void handleDecode(decodedText);
         },
-        () => {
-          // Scan failure — ignore, keep scanning
-        }
+        () => {}
       );
+
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Camera start timed out")), CAMERA_TIMEOUT_MS)
+      );
+
+      await Promise.race([cameraPromise, timeoutPromise]);
 
       if (mountedRef.current) {
         setState("scanning");
@@ -123,18 +128,19 @@ export function QROnboarding() {
         setState("permission-denied");
       } else {
         setState("error");
-        setErrorMessage("Failed to start camera. Please check your device settings.");
+        setErrorMessage(
+          message.includes("timed out")
+            ? "Camera not available. Try using PIN entry instead."
+            : "Failed to start camera. Please check your device settings."
+        );
       }
     }
   }, [handleDecode]);
 
   useEffect(() => {
     mountedRef.current = true;
-
-    // Provide device ID header for all requests
     const deviceId = getDeviceId();
-    void deviceId; // Used via gateApi headers
-
+    void deviceId;
     void startScanner();
 
     return () => {
@@ -144,66 +150,91 @@ export function QROnboarding() {
   }, [startScanner, stopScanner]);
 
   return (
-    <div className="flex flex-col items-center gap-6 w-full">
-      {/* Camera viewport */}
-      <div
-        id="qr-reader"
-        className="w-full max-w-[320px] aspect-square rounded-2xl overflow-hidden bg-neutral-900"
-        style={{ minHeight: 280 }}
-      />
+    <div className="flex flex-col items-center gap-4 w-full">
+      {/* Camera viewport with corner brackets */}
+      <div className="qr-viewport w-full aspect-[4/3] max-h-[280px] rounded-2xl relative">
+        {/* Corner brackets */}
+        <div className="qr-corner-tr" />
+        <div className="qr-corner-bl" />
 
-      {/* States */}
-      {state === "initializing" && (
-        <p className="text-sm text-neutral-400 animate-pulse">
-          Starting camera...
-        </p>
-      )}
+        {/* Scan line (only when scanning) */}
+        {state === "scanning" && <div className="qr-scanline" />}
 
-      {state === "scanning" && (
-        <p className="text-sm text-neutral-400">
-          Point your camera at the gate QR code
-        </p>
-      )}
+        {/* QR reader mount point */}
+        <div
+          id="qr-reader"
+          className="absolute inset-0 rounded-2xl overflow-hidden"
+        />
 
-      {state === "processing" && (
-        <div className="flex flex-col items-center gap-2">
-          <div className="size-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-neutral-400">Creating session...</p>
-        </div>
-      )}
+        {/* Overlay for non-scanning states */}
+        {state !== "scanning" && state !== "initializing" && (
+          <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/60 z-20" />
+        )}
+      </div>
 
-      {state === "permission-denied" && (
-        <div className="flex flex-col items-center gap-4 text-center px-4">
-          <p className="text-sm text-neutral-300">
-            Allow camera access to continue
-          </p>
-          <p className="text-xs text-neutral-500">
-            Check your browser settings and grant camera permission for this site.
-          </p>
-          <button
-            type="button"
-            onClick={() => void startScanner()}
-            className="h-11 px-6 rounded-xl bg-white text-black font-medium text-sm
-              active:scale-95 transition-transform"
-          >
-            Retry
-          </button>
-        </div>
-      )}
+      {/* Status messages */}
+      <div className="min-h-[56px] flex flex-col items-center justify-center">
+        {state === "initializing" && (
+          <div className="flex items-center gap-2.5">
+            <div className="size-4 rounded-full gate-spinner animate-spin" />
+            <span className="text-[15px] text-[var(--muted-foreground)]">
+              Starting camera...
+            </span>
+          </div>
+        )}
 
-      {state === "error" && (
-        <div className="flex flex-col items-center gap-4 text-center px-4">
-          <p className="text-sm text-red-400">{errorMessage}</p>
-          <button
-            type="button"
-            onClick={() => void startScanner()}
-            className="h-11 px-6 rounded-xl bg-white text-black font-medium text-sm
-              active:scale-95 transition-transform"
-          >
-            Try Again
-          </button>
-        </div>
-      )}
+        {state === "scanning" && (
+          <div className="status-badge text-[var(--coral)]">
+            Scanning — point at gate QR code
+          </div>
+        )}
+
+        {state === "processing" && (
+          <div className="flex items-center gap-2.5">
+            <div className="size-4 rounded-full gate-spinner animate-spin" />
+            <span className="text-[15px] text-[var(--coral)]">
+              Creating session...
+            </span>
+          </div>
+        )}
+
+        {state === "permission-denied" && (
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="flex items-center gap-2 text-[var(--warning)]">
+              <ShieldAlert className="size-4" />
+              <span className="text-[15px] font-medium">Camera access needed</span>
+            </div>
+            <p className="text-sm text-[var(--muted-foreground)] max-w-[260px]">
+              Check your browser settings and grant camera permission for this site
+            </p>
+            <button
+              type="button"
+              onClick={() => void startScanner()}
+              className="btn-retry min-h-[40px] px-5 rounded-xl text-[15px] font-medium flex items-center gap-2"
+            >
+              <RefreshCw className="size-3.5" />
+              Retry
+            </button>
+          </div>
+        )}
+
+        {state === "error" && (
+          <div className="flex flex-col items-center gap-3 text-center">
+            <p className="text-[15px] text-[var(--destructive)] flex items-center gap-2">
+              <Camera className="size-3.5 shrink-0" />
+              {errorMessage}
+            </p>
+            <button
+              type="button"
+              onClick={() => void startScanner()}
+              className="btn-retry min-h-[40px] px-5 rounded-xl text-[15px] font-medium flex items-center gap-2"
+            >
+              <RefreshCw className="size-3.5" />
+              Try Again
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

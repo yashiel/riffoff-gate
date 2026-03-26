@@ -65,7 +65,7 @@ export function HistorySheet({ open, onClose }: HistorySheetProps) {
       <div className="max-h-[70dvh] overflow-hidden rounded-t-2xl bg-[var(--card)] motion-safe:animate-[slideUp_200ms_ease-out]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-          <h2 className="text-sm font-semibold text-[var(--foreground)]">
+          <h2 className="text-[15px] font-semibold text-[var(--foreground)]">
             Scan History
           </h2>
           <button
@@ -79,7 +79,7 @@ export function HistorySheet({ open, onClose }: HistorySheetProps) {
         {/* List */}
         <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(70dvh - 52px)" }}>
           {history.length === 0 ? (
-            <div className="px-4 py-12 text-center text-xs text-[var(--muted-foreground)]">
+            <div className="px-4 py-12 text-center text-[13px] text-[var(--muted-foreground)]">
               No scans yet this session
             </div>
           ) : (
@@ -92,11 +92,11 @@ export function HistorySheet({ open, onClose }: HistorySheetProps) {
                   <li key={`${entry.ticketCode}-${i}`} className="flex items-center gap-3 px-4 py-3">
                     <Icon className={`size-4 shrink-0 ${s.color}`} aria-hidden="true" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium text-[var(--foreground)]">
+                      <p className="truncate text-[13px] font-medium text-[var(--foreground)]">
                         {entry.ticketCode}
                       </p>
                     </div>
-                    <time className="shrink-0 text-[10px] tabular-nums text-[var(--muted-foreground)]">
+                    <time className="shrink-0 text-[13px] tabular-nums text-[var(--muted-foreground)]">
                       {time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                     </time>
                   </li>
