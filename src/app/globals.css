@@ -348,10 +348,16 @@ html, body {
   display: none !important;
 }
 
-/* Also target any canvas overlay the library creates */
-#qr-reader canvas,
+/* Hide the dashboard section but NOT the canvas (needed for QR detection) */
 #qr-reader__dashboard_section {
   display: none !important;
+}
+
+/* The canvas is used for frame processing — hide visually but keep functional */
+#qr-reader canvas {
+  position: absolute !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 #qr-scanner-region video {
