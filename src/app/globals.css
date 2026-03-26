@@ -269,13 +269,24 @@ html, body {
 
 /* ─── Scanner animations ─── */
 @keyframes flash {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  0% { opacity: 0.8; }
+  100% { opacity: 0; }
 }
 
 @keyframes slideUp {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from { transform: translateY(100%) scale(0.95); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes scaleBurst {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+@keyframes scanline {
+  0%, 100% { top: 10%; }
+  50% { top: 85%; }
 }
 
 @keyframes fadeIn {

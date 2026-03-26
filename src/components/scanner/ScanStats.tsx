@@ -1,5 +1,7 @@
 "use client";
 
+import { Users, TrendingUp } from "lucide-react";
+
 interface ScanStatsProps {
   checkedIn: number;
   total: number;
@@ -10,16 +12,30 @@ export function ScanStats({ checkedIn, total }: ScanStatsProps) {
   const progressWidth = total > 0 ? Math.min((checkedIn / total) * 100, 100) : 0;
 
   return (
-    <div className="shrink-0 border-t border-[var(--border)] bg-[var(--card)] px-4 py-3">
-      <div className="flex items-center justify-between text-[13px]">
-        <span className="font-semibold tabular-nums text-[var(--foreground)]">
-          {checkedIn.toLocaleString()} / {total.toLocaleString()}
-        </span>
-        <span className="text-[var(--muted-foreground)]">{percentage}%</span>
+    <div className="shrink-0 border-t border-[var(--border)] bg-[var(--card)] px-4 py-2.5">
+      {/* Stats row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users className="size-3.5 text-[var(--muted-foreground)]" />
+          <span className="font-mono text-base font-bold tabular-nums text-[var(--foreground)]">
+            {checkedIn.toLocaleString()}
+          </span>
+          <span className="text-sm text-[var(--muted-foreground)]">
+            / {total.toLocaleString()}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <TrendingUp className="size-3.5 text-[var(--success)]" />
+          <span className="font-mono text-sm font-semibold tabular-nums text-[var(--foreground)]">
+            {percentage}%
+          </span>
+        </div>
       </div>
-      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[var(--muted)]">
+
+      {/* Progress bar */}
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--muted)]">
         <div
-          className="h-full rounded-full bg-[var(--success)] transition-[width] duration-300"
+          className="h-full rounded-full bg-gradient-to-r from-[var(--coral)] to-[var(--success)] transition-[width] duration-500 ease-out"
           style={{ width: `${progressWidth}%` }}
         />
       </div>

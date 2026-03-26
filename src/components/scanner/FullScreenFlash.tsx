@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check, X } from "lucide-react";
 
 interface FullScreenFlashProps {
   status: "valid" | "invalid" | null;
@@ -8,29 +9,50 @@ interface FullScreenFlashProps {
 
 export function FullScreenFlash({ status }: FullScreenFlashProps) {
   const [visible, setVisible] = useState(false);
-  const [activeStatus, setActiveStatus] = useState<"valid" | "invalid" | null>(
-    null
-  );
+  const [activeStatus, setActiveStatus] = useState<"valid" | "invalid" | null>(null);
 
   useEffect(() => {
     if (!status) return;
     setActiveStatus(status);
     setVisible(true);
-    const timer = setTimeout(() => setVisible(false), 200);
+
+    // Haptic feedback
+    if (navigator.vibrate) {
+      navigator.vibrate(status === "valid" ? [50] : [50, 50, 50]);
+    }
+
+    const timer = setTimeout(() => setVisible(false), 300);
     return () => clearTimeout(timer);
   }, [status]);
 
   if (!visible || !activeStatus) return null;
 
-  const bg =
-    activeStatus === "valid"
-      ? "bg-[var(--success)]/30"
-      : "bg-[var(--destructive)]/30";
+  const isValid = activeStatus === "valid";
 
   return (
     <div
-      className={`pointer-events-none fixed inset-0 z-50 ${bg} motion-safe:animate-[flash_200ms_ease-out_forwards] motion-reduce:hidden`}
+      className={`pointer-events-none fixed inset-0 z-50 flex items-center justify-center motion-reduce:hidden`}
       aria-hidden="true"
-    />
+    >
+      {/* Color overlay */}
+      <div
+        className={`absolute inset-0 ${
+          isValid ? "bg-emerald-500/25" : "bg-red-500/25"
+        } motion-safe:animate-[flash_300ms_ease-out_forwards]`}
+      />
+
+      {/* Center icon burst */}
+      <div
+        className={`relative z-10 flex size-20 items-center justify-center rounded-full ${
+          isValid ? "bg-emerald-500/40" : "bg-red-500/40"
+        } motion-safe:animate-[scaleBurst_300ms_ease-out_forwards]`}
+      >
+        {isValid ? (
+          <Check className="size-10 text-white" strokeWidth={3} />
+        ) : (
+          <X className="size-10 text-white" strokeWidth={3} />
+        )}
+      </div>
+    </div>
   );
 }
