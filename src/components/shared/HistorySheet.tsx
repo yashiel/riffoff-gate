@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { X, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { X, CheckCircle2, XCircle, AlertTriangle, Search } from "lucide-react";
 
 interface HistoryEntry {
   ticketCode: string;
@@ -44,13 +44,23 @@ const STATUS_ICONS = {
 
 export function HistorySheet({ open, onClose }: HistorySheetProps) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [search, setSearch] = useState("");
   const backdropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (open) setHistory(getHistory());
+    if (open) {
+      setHistory(getHistory());
+      setSearch("");
+    }
   }, [open]);
 
   if (!open) return null;
+
+  const filtered = search
+    ? history.filter((h) =>
+        h.ticketCode.toLowerCase().includes(search.toLowerCase())
+      )
+    : history;
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col">
@@ -62,29 +72,52 @@ export function HistorySheet({ open, onClose }: HistorySheetProps) {
         aria-hidden="true"
       />
       {/* Sheet */}
-      <div className="max-h-[70dvh] overflow-hidden rounded-t-2xl bg-[var(--card)] motion-safe:animate-[slideUp_200ms_ease-out]">
+      <div className="max-h-[75dvh] overflow-hidden rounded-t-2xl bg-[var(--card)] motion-safe:animate-[slideUp_200ms_ease-out]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-          <h2 className="text-[15px] font-semibold text-[var(--foreground)]">
-            Scan History
-          </h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)]"
-            aria-label="Close history"
-          >
-            <X className="size-5" />
-          </button>
+        <div className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--card)]">
+          <div className="flex items-center justify-between px-4 py-3">
+            <h2 className="text-base font-semibold text-[var(--foreground)]">
+              Scan History
+              <span className="ml-2 text-sm font-normal text-[var(--muted-foreground)]">
+                {filtered.length}
+              </span>
+            </h2>
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)]"
+              aria-label="Close history"
+            >
+              <X className="size-5" />
+            </button>
+          </div>
+
+          {/* Search */}
+          {history.length > 0 && (
+            <div className="px-4 pb-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[var(--muted-foreground)]" />
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Filter by ticket code"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--muted)] py-2 pl-9 pr-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] outline-none focus:border-[var(--coral)]"
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+          )}
         </div>
+
         {/* List */}
-        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(70dvh - 52px)" }}>
-          {history.length === 0 ? (
-            <div className="px-4 py-12 text-center text-[13px] text-[var(--muted-foreground)]">
-              No scans yet this session
+        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(75dvh - 110px)" }}>
+          {filtered.length === 0 ? (
+            <div className="px-4 py-12 text-center text-sm text-[var(--muted-foreground)]">
+              {search ? `No scans matching "${search}"` : "No scans yet this session"}
             </div>
           ) : (
             <ul className="divide-y divide-[var(--border)]">
-              {history.map((entry, i) => {
+              {filtered.map((entry, i) => {
                 const s = STATUS_ICONS[entry.status];
                 const Icon = s.icon;
                 const time = new Date(entry.timestamp);
@@ -92,11 +125,11 @@ export function HistorySheet({ open, onClose }: HistorySheetProps) {
                   <li key={`${entry.ticketCode}-${i}`} className="flex items-center gap-3 px-4 py-3">
                     <Icon className={`size-4 shrink-0 ${s.color}`} aria-hidden="true" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium text-[var(--foreground)]">
+                      <p className="truncate text-sm font-medium text-[var(--foreground)]">
                         {entry.ticketCode}
                       </p>
                     </div>
-                    <time className="shrink-0 text-[13px] tabular-nums text-[var(--muted-foreground)]">
+                    <time className="shrink-0 text-sm tabular-nums text-[var(--muted-foreground)]">
                       {time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                     </time>
                   </li>

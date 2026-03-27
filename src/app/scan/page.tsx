@@ -29,10 +29,13 @@ export default function ScanPage() {
   const [checkedIn, setCheckedIn] = useState(0);
   const [total, setTotal] = useState(0);
   const [scanRate, setScanRate] = useState(0);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualCode, setManualCode] = useState("");
   // TODO: wire to offline queue length when offline sync is implemented
   const [pendingSync] = useState(0);
   const scanTimesRef = useRef<number[]>([]);
   const flashKeyRef = useRef(0);
+  const manualInputRef = useRef<HTMLInputElement>(null);
 
   const connectivity = useConnectivity();
   const { playSuccess, playError } = useAudio();
@@ -123,6 +126,18 @@ export default function ScanPage() {
     [connectivity, playSuccess, playError, updateRate]
   );
 
+  const handleManualSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const code = manualCode.trim();
+      if (!code) return;
+      setManualCode("");
+      setShowManualEntry(false);
+      handleScan(code);
+    },
+    [manualCode, handleScan]
+  );
+
   const handleDismissResult = useCallback(() => {
     setScanResult(null);
   }, []);
@@ -159,11 +174,48 @@ export default function ScanPage() {
       {/* Full-screen flash */}
       <FullScreenFlash key={flashKeyRef.current} status={flashStatus} />
 
+      {/* Manual code entry (toggleable) */}
+      {showManualEntry && (
+        <div className="border-t border-[var(--border)] bg-[var(--card)] px-3 py-2 motion-safe:animate-[slideUp_150ms_ease-out]">
+          <form onSubmit={handleManualSubmit} className="flex gap-2">
+            <input
+              ref={manualInputRef}
+              type="text"
+              value={manualCode}
+              onChange={(e) => setManualCode(e.target.value.toUpperCase())}
+              placeholder="RIFF-XXXXXX or ticket token"
+              className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--muted)] px-3 py-2.5 font-mono text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] outline-none focus:border-[var(--coral)]"
+              autoComplete="off"
+              spellCheck={false}
+              autoFocus
+            />
+            <button
+              type="submit"
+              disabled={!manualCode.trim()}
+              className="shrink-0 rounded-lg bg-[var(--coral)] px-4 py-2.5 text-sm font-bold text-black transition-colors disabled:opacity-40"
+            >
+              Check In
+            </button>
+          </form>
+        </div>
+      )}
+
       {/* Stats bar */}
       <ScanStats checkedIn={checkedIn} total={total} />
 
-      {/* Bottom navigation */}
-      <BottomNav active={activeSheet} onChange={setActiveSheet} />
+      {/* Bottom navigation + manual entry toggle + disconnect */}
+      <BottomNav
+        active={activeSheet}
+        onChange={setActiveSheet}
+        onManualEntry={() => {
+          setShowManualEntry(!showManualEntry);
+          if (!showManualEntry) {
+            setTimeout(() => manualInputRef.current?.focus(), 100);
+          }
+        }}
+        showManualEntry={showManualEntry}
+        onLogout={handleLogout}
+      />
 
       {/* Sheets */}
       <HistorySheet
