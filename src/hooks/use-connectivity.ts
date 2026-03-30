@@ -14,12 +14,16 @@ export function useConnectivity(): ConnectivityStatus {
     }
     try {
       const start = Date.now();
-      const API_BASE =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-      await fetch(`${API_BASE}/api/gate/status`, {
-        credentials: "include",
-        signal: AbortSignal.timeout(5000),
-      });
+      // Use gateApi so the Authorization header is sent (raw fetch
+      // without it causes 401 on cross-origin requests).
+      const { gateApi } = await import("@/lib/api/client");
+      const res = await gateApi("/api/gate/status");
+      if (!res.ok) {
+        // Don't treat auth failures as connectivity issues -
+        // gateApi handles 401 signout already.
+        setStatus("online");
+        return;
+      }
       const elapsed = Date.now() - start;
       setStatus(elapsed > 2000 ? "degraded" : "online");
     } catch {
