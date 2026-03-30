@@ -78,6 +78,10 @@ export default function ScanPage() {
           attendeeName: data.attendeeName,
           tierName: data.tierName,
           reason: data.reason,
+          attendeePhotoUrl: data.attendeePhotoUrl ?? null,
+          seatInfo: data.seatInfo ?? null,
+          firstScannedAt: data.firstScannedAt ?? null,
+          firstScannedByGate: data.firstScannedByGate ?? null,
         };
 
         setScanResult(result);
@@ -110,6 +114,9 @@ export default function ScanPage() {
             ticketCode: result.ticketCode ?? decodedText.slice(0, 12),
             status: result.status as "valid" | "invalid" | "duplicate" | "conflict",
             timestamp: new Date().toISOString(),
+            attendeeName: result.attendeeName,
+            tierName: result.tierName,
+            reason: result.reason,
           });
         }
       } catch {

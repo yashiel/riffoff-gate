@@ -7,6 +7,9 @@ interface HistoryEntry {
   ticketCode: string;
   status: "valid" | "invalid" | "duplicate" | "conflict";
   timestamp: string;
+  attendeeName?: string;
+  tierName?: string;
+  reason?: string;
 }
 
 interface HistorySheetProps {
@@ -57,9 +60,11 @@ export function HistorySheet({ open, onClose }: HistorySheetProps) {
   if (!open) return null;
 
   const filtered = search
-    ? history.filter((h) =>
-        h.ticketCode.toLowerCase().includes(search.toLowerCase())
-      )
+    ? history.filter((h) => {
+        const q = search.toLowerCase();
+        return h.ticketCode.toLowerCase().includes(q) ||
+          (h.attendeeName?.toLowerCase().includes(q) ?? false);
+      })
     : history;
 
   return (
@@ -126,8 +131,13 @@ export function HistorySheet({ open, onClose }: HistorySheetProps) {
                     <Icon className={`size-4 shrink-0 ${s.color}`} aria-hidden="true" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-[var(--foreground)]">
-                        {entry.ticketCode}
+                        {entry.attendeeName || entry.ticketCode}
                       </p>
+                      {entry.attendeeName && (
+                        <p className="truncate text-xs text-[var(--muted-foreground)]">
+                          {entry.ticketCode}{entry.tierName ? ` · ${entry.tierName}` : ""}
+                        </p>
+                      )}
                     </div>
                     <time className="shrink-0 text-sm tabular-nums text-[var(--muted-foreground)]">
                       {time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
