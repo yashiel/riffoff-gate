@@ -399,3 +399,22 @@ html, body {
 [id*="qr_shaded_region"] {
   display: none !important;
 }
+
+/* ─── Broadcast Banner Animations ─── */
+@keyframes pulseBorderAmber {
+  0%, 100% { border-color: rgba(245, 158, 11, 0.3); }
+  50% { border-color: rgba(245, 158, 11, 0.6); }
+}
+
+@keyframes flashBorderRed {
+  0%, 100% { border-color: #ef4444; opacity: 1; }
+  50% { border-color: #ef4444; opacity: 0.6; }
+}
+
+.animate-pulse-border-amber {
+  animation: pulseBorderAmber 2s ease-in-out infinite;
+}
+
+.animate-flash-border-red {
+  animation: flashBorderRed 1s ease-in-out infinite;
+}

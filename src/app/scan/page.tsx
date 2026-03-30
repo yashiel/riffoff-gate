@@ -19,6 +19,7 @@ import { gateApi } from "@/lib/api/client";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import { useAudio } from "@/hooks/use-audio";
 import { useConnectivity } from "@/hooks/use-connectivity";
+import { AlertTriangle } from "lucide-react";
 
 export default function ScanPage() {
   const router = useRouter();
@@ -37,8 +38,10 @@ export default function ScanPage() {
   const flashKeyRef = useRef(0);
   const manualInputRef = useRef<HTMLInputElement>(null);
 
+  const [emergencyActive, setEmergencyActive] = useState(false);
+
   const connectivity = useConnectivity();
-  const { playSuccess, playError } = useAudio();
+  const { playSuccess, playDenied, playDuplicate } = useAudio();
   useWakeLock();
 
   // Check session on mount
@@ -96,8 +99,10 @@ export default function ScanPage() {
         if (result.status === "valid") {
           playSuccess();
           setCheckedIn((prev) => prev + 1);
+        } else if (result.status === "duplicate") {
+          playDuplicate();
         } else {
-          playError();
+          playDenied();
         }
 
         // Update stats from API response
@@ -124,13 +129,13 @@ export default function ScanPage() {
           status: "invalid",
           reason: connectivity === "offline" ? "No connection" : "Scan failed",
         });
-        playError();
+        playDenied();
         flashKeyRef.current += 1;
         setFlashStatus(null);
         requestAnimationFrame(() => setFlashStatus("invalid"));
       }
     },
-    [connectivity, playSuccess, playError, updateRate]
+    [connectivity, playSuccess, playDenied, playDuplicate, updateRate]
   );
 
   const handleManualSubmit = useCallback(
@@ -173,9 +178,24 @@ export default function ScanPage() {
 
       {/* Camera viewport */}
       <div className="relative flex-1 overflow-hidden">
-        <QRViewport onScan={handleScan} active={activeSheet === "scan"} />
-        <BroadcastBanner />
+        <QRViewport
+          onScan={handleScan}
+          active={activeSheet === "scan" && !emergencyActive}
+        />
+        <BroadcastBanner onEmergency={setEmergencyActive} />
         <ScanResult result={scanResult} onDismiss={handleDismissResult} />
+
+        {/* Emergency overlay — pauses scanning */}
+        {emergencyActive && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-red-950/60 backdrop-blur-[2px]">
+            <div className="flex flex-col items-center gap-2 text-white">
+              <AlertTriangle className="size-10 text-[#ef4444] animate-pulse" />
+              <p className="text-lg font-bold uppercase tracking-wider">
+                Scanning Paused
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Full-screen flash */}
