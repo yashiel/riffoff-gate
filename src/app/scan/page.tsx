@@ -19,6 +19,9 @@ import { gateApi } from "@/lib/api/client";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import { useAudio } from "@/hooks/use-audio";
 import { useConnectivity } from "@/hooks/use-connectivity";
+import { AlertTriangle } from "lucide-react";
+
+const SCAN_RESULT_DISMISS_MS = 5000;
 
 export default function ScanPage() {
   const router = useRouter();
@@ -37,8 +40,10 @@ export default function ScanPage() {
   const flashKeyRef = useRef(0);
   const manualInputRef = useRef<HTMLInputElement>(null);
 
+  const [emergencyActive, setEmergencyActive] = useState(false);
+
   const connectivity = useConnectivity();
-  const { playSuccess, playError } = useAudio();
+  const { playSuccess, playDenied, playDuplicate } = useAudio();
   useWakeLock();
 
   // Check session on mount
@@ -78,6 +83,10 @@ export default function ScanPage() {
           attendeeName: data.attendeeName,
           tierName: data.tierName,
           reason: data.reason,
+          attendeePhotoUrl: data.attendeePhotoUrl ?? null,
+          seatInfo: data.seatInfo ?? null,
+          firstScannedAt: data.firstScannedAt ?? null,
+          firstScannedByGate: data.firstScannedByGate ?? null,
         };
 
         setScanResult(result);
@@ -92,8 +101,10 @@ export default function ScanPage() {
         if (result.status === "valid") {
           playSuccess();
           setCheckedIn((prev) => prev + 1);
+        } else if (result.status === "duplicate") {
+          playDuplicate();
         } else {
-          playError();
+          playDenied();
         }
 
         // Update stats from API response
@@ -110,6 +121,9 @@ export default function ScanPage() {
             ticketCode: result.ticketCode ?? decodedText.slice(0, 12),
             status: result.status as "valid" | "invalid" | "duplicate" | "conflict",
             timestamp: new Date().toISOString(),
+            attendeeName: result.attendeeName,
+            tierName: result.tierName,
+            reason: result.reason,
           });
         }
       } catch {
@@ -117,13 +131,13 @@ export default function ScanPage() {
           status: "invalid",
           reason: connectivity === "offline" ? "No connection" : "Scan failed",
         });
-        playError();
+        playDenied();
         flashKeyRef.current += 1;
         setFlashStatus(null);
         requestAnimationFrame(() => setFlashStatus("invalid"));
       }
     },
-    [connectivity, playSuccess, playError, updateRate]
+    [connectivity, playSuccess, playDenied, playDuplicate, updateRate]
   );
 
   const handleManualSubmit = useCallback(
@@ -166,9 +180,24 @@ export default function ScanPage() {
 
       {/* Camera viewport */}
       <div className="relative flex-1 overflow-hidden">
-        <QRViewport onScan={handleScan} active={activeSheet === "scan"} />
-        <BroadcastBanner />
-        <ScanResult result={scanResult} onDismiss={handleDismissResult} />
+        <QRViewport
+          onScan={handleScan}
+          active={activeSheet === "scan" && !emergencyActive}
+        />
+        <BroadcastBanner onEmergency={setEmergencyActive} />
+        <ScanResult result={scanResult} onDismiss={handleDismissResult} dismissMs={SCAN_RESULT_DISMISS_MS} />
+
+        {/* Emergency overlay — pauses scanning */}
+        {emergencyActive && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-red-950/60 backdrop-blur-[2px]">
+            <div className="flex flex-col items-center gap-2 text-white">
+              <AlertTriangle className="size-10 text-[#ef4444] animate-pulse" />
+              <p className="text-lg font-bold uppercase tracking-wider">
+                Scanning Paused
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Full-screen flash */}
@@ -183,8 +212,8 @@ export default function ScanPage() {
               type="text"
               value={manualCode}
               onChange={(e) => setManualCode(e.target.value.toUpperCase())}
-              placeholder="RIFF-XXXXXX or ticket token"
-              className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--muted)] px-3 py-2.5 font-mono text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] outline-none focus:border-[var(--coral)]"
+              placeholder="RIFF-XXXXXX or ticket code"
+              className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--muted)] px-3 py-2.5 font-mono text-sm uppercase text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:normal-case outline-none focus:border-[var(--coral)]"
               autoComplete="off"
               spellCheck={false}
               autoFocus
