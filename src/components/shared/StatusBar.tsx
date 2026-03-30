@@ -5,6 +5,7 @@ import { Wifi, WifiOff, WifiLow, CloudOff } from "lucide-react";
 interface StatusBarProps {
   status: "online" | "degraded" | "offline";
   gateName: string;
+  eventName?: string;
   rate: number;
   pendingSync: number;
 }
@@ -27,7 +28,7 @@ const STATUS_CONFIG = {
   },
 } as const;
 
-export function StatusBar({ status, gateName, rate, pendingSync }: StatusBarProps) {
+export function StatusBar({ status, gateName, eventName, rate, pendingSync }: StatusBarProps) {
   const config = STATUS_CONFIG[status];
   const Icon = config.icon;
 
@@ -36,7 +37,7 @@ export function StatusBar({ status, gateName, rate, pendingSync }: StatusBarProp
       {/* Left: connection status */}
       <div className="flex items-center gap-2">
         <span
-          className={`size-2 rounded-full ${config.dot}`}
+          className={`size-2 rounded-full ${config.dot}${status === "degraded" ? " animate-pulse" : ""}`}
           aria-hidden="true"
         />
         <Icon className="size-3.5 text-[var(--muted-foreground)]" aria-hidden="true" />
@@ -45,9 +46,9 @@ export function StatusBar({ status, gateName, rate, pendingSync }: StatusBarProp
         </span>
       </div>
 
-      {/* Center: gate name */}
+      {/* Center: event + gate name */}
       <span className="max-w-[40%] truncate text-[13px] font-semibold text-[var(--foreground)]">
-        {gateName}
+        {eventName ? `${eventName} · ${gateName}` : gateName}
       </span>
 
       {/* Right: throughput + pending */}

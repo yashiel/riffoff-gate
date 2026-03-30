@@ -21,6 +21,8 @@ import { useAudio } from "@/hooks/use-audio";
 import { useConnectivity } from "@/hooks/use-connectivity";
 import { AlertTriangle } from "lucide-react";
 
+const SCAN_RESULT_DISMISS_MS = 5000;
+
 export default function ScanPage() {
   const router = useRouter();
   const [session, setSession] = useState<GateSessionData | null>(null);
@@ -183,7 +185,7 @@ export default function ScanPage() {
           active={activeSheet === "scan" && !emergencyActive}
         />
         <BroadcastBanner onEmergency={setEmergencyActive} />
-        <ScanResult result={scanResult} onDismiss={handleDismissResult} />
+        <ScanResult result={scanResult} onDismiss={handleDismissResult} dismissMs={SCAN_RESULT_DISMISS_MS} />
 
         {/* Emergency overlay — pauses scanning */}
         {emergencyActive && (
@@ -210,8 +212,8 @@ export default function ScanPage() {
               type="text"
               value={manualCode}
               onChange={(e) => setManualCode(e.target.value.toUpperCase())}
-              placeholder="RIFF-XXXXXX or ticket token"
-              className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--muted)] px-3 py-2.5 font-mono text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] outline-none focus:border-[var(--coral)]"
+              placeholder="RIFF-XXXXXX or ticket code"
+              className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--muted)] px-3 py-2.5 font-mono text-sm uppercase text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] placeholder:normal-case outline-none focus:border-[var(--coral)]"
               autoComplete="off"
               spellCheck={false}
               autoFocus
