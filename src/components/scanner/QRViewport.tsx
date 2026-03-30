@@ -75,9 +75,10 @@ export function QRViewport({ onScan, active }: QRViewportProps) {
 
     async function initScanner() {
       try {
+        const isAndroid = /android/i.test(navigator.userAgent);
         const hasBarcodeDetector = "BarcodeDetector" in window;
 
-        if (hasBarcodeDetector) {
+        if (hasBarcodeDetector && !isAndroid) {
           // ── Native BarcodeDetector (fastest) ──
           const stream = await navigator.mediaDevices.getUserMedia({
             video: {
@@ -131,6 +132,8 @@ export function QRViewport({ onScan, active }: QRViewportProps) {
         } else {
           // ── Fallback: html5-qrcode (Firefox, older browsers) ──
           usingFallbackRef.current = true;
+          // Hide native video so html5-qrcode is visible
+          if (videoRef.current) videoRef.current.style.display = "none";
 
           const { Html5Qrcode } = await import("html5-qrcode");
           const containerId = "qr-scanner-fallback";
