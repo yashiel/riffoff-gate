@@ -10,8 +10,13 @@ interface QRViewportProps {
 /**
  * High-performance QR scanner viewport.
  *
- * Uses native BarcodeDetector API (Chrome/Edge/Samsung/Safari 17.2+) for
- * hardware-accelerated detection, with html5-qrcode fallback for Firefox.
+ * Strategy:
+ * - iOS/Desktop with BarcodeDetector: native video + BarcodeDetector (fastest)
+ * - Android / no BarcodeDetector: html5-qrcode (handles Android video quirks)
+ *
+ * Android Chrome has a known compositing bug where <video> elements with
+ * absolute positioning + object-cover render black even when the stream is
+ * playing. html5-qrcode manages its own video element with Android-safe settings.
  *
  * Security:
  * - Debounce: same QR ignored for 3 seconds (prevents double-scan)
@@ -19,25 +24,30 @@ interface QRViewportProps {
  * - Input validation: API validates ticketId format
  * - Rate limiting: server-side rate limits per session
  */
+
+function isAndroid(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /android/i.test(navigator.userAgent);
+}
+
 export function QRViewport({ onScan, active }: QRViewportProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanningRef = useRef(false);
   const lastScanRef = useRef<string>("");
   const lastScanTimeRef = useRef<number>(0);
   const [cameraReady, setCameraReady] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
-  // Track if we're using native or fallback
-  const usingFallbackRef = useRef(false);
+  const [useLibScanner, setUseLibScanner] = useState(false);
   const fallbackScannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null);
 
   // Debounced scan handler — prevents double-scans of same ticket
   const handleScan = useCallback(
     (decodedText: string) => {
-      if (!decodedText || decodedText.length < 3) return; // Ignore noise
+      if (!decodedText || decodedText.length < 3) return;
 
       const now = Date.now();
-      // Same code within 3s = duplicate scan
       if (
         decodedText === lastScanRef.current &&
         now - lastScanTimeRef.current < 3000
@@ -75,10 +85,16 @@ export function QRViewport({ onScan, active }: QRViewportProps) {
 
     async function initScanner() {
       try {
+        const android = isAndroid();
         const hasBarcodeDetector = "BarcodeDetector" in window;
 
-        if (hasBarcodeDetector) {
-          // ── Native BarcodeDetector (fastest) ──
+        // Android Chrome: always use html5-qrcode (handles video element quirks)
+        // Non-Android with BarcodeDetector: use native path (fastest)
+        // No BarcodeDetector: use html5-qrcode
+        const useNative = hasBarcodeDetector && !android;
+
+        if (useNative) {
+          // ── Native BarcodeDetector (iOS Safari 17.2+, Desktop Chrome) ──
           const stream = await navigator.mediaDevices.getUserMedia({
             video: {
               facingMode: "environment",
@@ -95,8 +111,30 @@ export function QRViewport({ onScan, active }: QRViewportProps) {
           streamRef.current = stream;
 
           if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            await videoRef.current.play();
+            const video = videoRef.current;
+            video.srcObject = stream;
+
+            await new Promise<void>((resolve, reject) => {
+              const onLoaded = () => {
+                video.removeEventListener("loadedmetadata", onLoaded);
+                video.removeEventListener("error", onError);
+                resolve();
+              };
+              const onError = () => {
+                video.removeEventListener("loadedmetadata", onLoaded);
+                video.removeEventListener("error", onError);
+                reject(new Error("Video failed to load"));
+              };
+              if (video.readyState >= 1) {
+                resolve();
+              } else {
+                video.addEventListener("loadedmetadata", onLoaded);
+                video.addEventListener("error", onError);
+              }
+            });
+
+            if (cancelled) return;
+            await video.play();
           }
 
           setCameraReady(true);
@@ -129,19 +167,20 @@ export function QRViewport({ onScan, active }: QRViewportProps) {
 
           requestAnimationFrame(scanLoop);
         } else {
-          // ── Fallback: html5-qrcode (Firefox, older browsers) ──
-          usingFallbackRef.current = true;
+          // ── html5-qrcode (Android + Firefox + older browsers) ──
+          // This library manages its own video element with proper
+          // Android-compatible settings (no compositing black screen).
+          setUseLibScanner(true);
 
           const { Html5Qrcode } = await import("html5-qrcode");
-          const containerId = "qr-scanner-fallback";
+          const containerId = "qr-scanner-region";
 
-          let el = document.getElementById(containerId);
-          if (!el) {
-            el = document.createElement("div");
-            el.id = containerId;
-            el.style.cssText = "width:100%;height:100%;position:absolute;inset:0;";
-            videoRef.current?.parentElement?.appendChild(el);
-          }
+          // Wait for container to be in the DOM after state update
+          await new Promise((r) => setTimeout(r, 50));
+          if (cancelled) return;
+
+          const el = document.getElementById(containerId);
+          if (!el) return;
 
           const scanner = new Html5Qrcode(containerId, { verbose: false });
           fallbackScannerRef.current = scanner as unknown as typeof fallbackScannerRef.current;
@@ -162,7 +201,6 @@ export function QRViewport({ onScan, active }: QRViewportProps) {
         if (msg.includes("permission") || msg.includes("notallowed") || msg.includes("not allowed")) {
           setPermissionDenied(true);
         } else {
-          // Camera unavailable — still show UI without crashing
           setPermissionDenied(true);
         }
       }
@@ -178,16 +216,26 @@ export function QRViewport({ onScan, active }: QRViewportProps) {
   }, [active, handleScan, stopCamera]);
 
   return (
-    <div className="relative flex-1 overflow-hidden bg-black">
-      {/* Native video element */}
-      <video
-        ref={videoRef}
-        className="absolute inset-0 w-full h-full object-cover"
-        playsInline
-        muted
-        autoPlay
-        style={{ display: usingFallbackRef.current ? "none" : "block" }}
-      />
+    <div ref={containerRef} className="relative flex-1 overflow-hidden bg-black">
+      {/* Native video element (iOS/Desktop only) */}
+      {!useLibScanner && (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <video
+          ref={videoRef}
+          className="absolute inset-0 w-full h-full object-cover"
+          playsInline
+          muted
+          autoPlay
+        />
+      )}
+
+      {/* html5-qrcode container (Android + fallback) */}
+      {useLibScanner && (
+        <div
+          id="qr-scanner-region"
+          className="absolute inset-0"
+        />
+      )}
 
       {/* Loading state */}
       {!cameraReady && !permissionDenied && (
@@ -215,8 +263,8 @@ export function QRViewport({ onScan, active }: QRViewportProps) {
         </div>
       )}
 
-      {/* Scan overlay — crosshair guides */}
-      {cameraReady && (
+      {/* Scan overlay — crosshair guides (native path only, html5-qrcode has its own UI) */}
+      {cameraReady && !useLibScanner && (
         <div className="absolute inset-0 z-10 pointer-events-none">
           {/* Center scan zone indicator */}
           <div className="absolute inset-0 flex items-center justify-center">
