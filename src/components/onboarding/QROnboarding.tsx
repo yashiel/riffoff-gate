@@ -238,7 +238,7 @@ export function QROnboarding() {
         {useLibScanner && (
           <div
             id="qr-onboard-region"
-            className="absolute inset-0 rounded-2xl overflow-hidden"
+            style={{ width: "100%", height: "100%" }} className="rounded-2xl overflow-hidden"
           />
         )}
 
