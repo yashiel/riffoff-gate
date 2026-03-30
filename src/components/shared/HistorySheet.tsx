@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { X, CheckCircle2, XCircle, AlertTriangle, Search } from "lucide-react";
+import { X, CheckCircle2, XCircle, AlertTriangle, Zap, Search } from "lucide-react";
 
 interface HistoryEntry {
   ticketCode: string;
@@ -17,8 +17,10 @@ interface HistorySheetProps {
   onClose: () => void;
 }
 
+type FilterTab = "all" | "valid" | "failed" | "duplicate";
+
 const HISTORY_KEY = "riffoff-gate-scan-history";
-const MAX_HISTORY = 50;
+const MAX_HISTORY = 100;
 
 export function addToHistory(entry: HistoryEntry) {
   const raw = localStorage.getItem(HISTORY_KEY);
@@ -38,34 +40,82 @@ function getHistory(): HistoryEntry[] {
   }
 }
 
-const STATUS_ICONS = {
-  valid: { icon: CheckCircle2, color: "text-[var(--success)]" },
-  invalid: { icon: XCircle, color: "text-[var(--destructive)]" },
-  duplicate: { icon: AlertTriangle, color: "text-[var(--warning)]" },
-  conflict: { icon: XCircle, color: "text-[var(--destructive)]" },
+const STATUS_CONFIG = {
+  valid: { icon: CheckCircle2, color: "text-emerald-400", border: "border-l-emerald-500", bg: "bg-emerald-500" },
+  invalid: { icon: XCircle, color: "text-red-400", border: "border-l-red-500", bg: "bg-red-500" },
+  duplicate: { icon: AlertTriangle, color: "text-amber-400", border: "border-l-amber-500", bg: "bg-amber-500" },
+  conflict: { icon: Zap, color: "text-orange-400", border: "border-l-orange-500", bg: "bg-orange-500" },
 } as const;
+
+const FILTER_TABS: { key: FilterTab; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "valid", label: "Valid" },
+  { key: "failed", label: "Failed" },
+  { key: "duplicate", label: "Duplicate" },
+];
+
+function matchesFilter(entry: HistoryEntry, filter: FilterTab): boolean {
+  if (filter === "all") return true;
+  if (filter === "valid") return entry.status === "valid";
+  if (filter === "failed") return entry.status === "invalid" || entry.status === "conflict";
+  if (filter === "duplicate") return entry.status === "duplicate";
+  return true;
+}
+
+function TierBadge({ tier }: { tier?: string }) {
+  if (!tier) return null;
+  const lower = tier.toLowerCase();
+  const isVip = lower.includes("vip");
+  const isEarly = lower.includes("early");
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+        isVip
+          ? "bg-[#fef3c7] text-[#b8860b]"
+          : isEarly
+            ? "bg-[#dbeafe] text-[#1e40af]"
+            : "bg-[#f3f4f6] text-[#374151]"
+      }`}
+    >
+      {tier}
+    </span>
+  );
+}
 
 export function HistorySheet({ open, onClose }: HistorySheetProps) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [search, setSearch] = useState("");
+  const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const backdropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) {
       setHistory(getHistory());
       setSearch("");
+      setActiveFilter("all");
     }
   }, [open]);
 
   if (!open) return null;
 
-  const filtered = search
-    ? history.filter((h) => {
-        const q = search.toLowerCase();
-        return h.ticketCode.toLowerCase().includes(q) ||
-          (h.attendeeName?.toLowerCase().includes(q) ?? false);
-      })
-    : history;
+  const filtered = history.filter((h) => {
+    if (!matchesFilter(h, activeFilter)) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return (
+        h.ticketCode.toLowerCase().includes(q) ||
+        (h.attendeeName?.toLowerCase().includes(q) ?? false) ||
+        (h.tierName?.toLowerCase().includes(q) ?? false)
+      );
+    }
+    return true;
+  });
+
+  const filterLabel = activeFilter === "all" ? "Scan History" : FILTER_TABS.find((t) => t.key === activeFilter)?.label ?? "Scan History";
+  const countLabel =
+    activeFilter === "all"
+      ? `${filtered.length} scan${filtered.length !== 1 ? "s" : ""}`
+      : `${filtered.length} of ${history.length}`;
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col">
@@ -82,9 +132,9 @@ export function HistorySheet({ open, onClose }: HistorySheetProps) {
         <div className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--card)]">
           <div className="flex items-center justify-between px-4 py-3">
             <h2 className="text-base font-semibold text-[var(--foreground)]">
-              Scan History
+              {filterLabel}
               <span className="ml-2 text-sm font-normal text-[var(--muted-foreground)]">
-                {filtered.length}
+                {countLabel}
               </span>
             </h2>
             <button
@@ -96,6 +146,26 @@ export function HistorySheet({ open, onClose }: HistorySheetProps) {
             </button>
           </div>
 
+          {/* Filter Tabs */}
+          <div className="flex gap-2 overflow-x-auto px-4 pb-2 scrollbar-none">
+            {FILTER_TABS.map((tab) => {
+              const isActive = activeFilter === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveFilter(tab.key)}
+                  className={`shrink-0 rounded-full px-3 py-1 text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-[var(--coral)]/10 text-[var(--coral)]"
+                      : "text-[var(--muted-foreground)] hover:bg-white/5"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
           {/* Search */}
           {history.length > 0 && (
             <div className="px-4 pb-3">
@@ -105,7 +175,7 @@ export function HistorySheet({ open, onClose }: HistorySheetProps) {
                   type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Filter by ticket code"
+                  placeholder="Search name, code, or tier..."
                   className="w-full rounded-lg border border-[var(--border)] bg-[var(--muted)] py-2 pl-9 pr-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] outline-none focus:border-[var(--coral)]"
                   autoComplete="off"
                 />
@@ -115,37 +185,54 @@ export function HistorySheet({ open, onClose }: HistorySheetProps) {
         </div>
 
         {/* List */}
-        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(75dvh - 110px)" }}>
+        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(75dvh - 160px)" }}>
           {filtered.length === 0 ? (
             <div className="px-4 py-12 text-center text-sm text-[var(--muted-foreground)]">
-              {search ? `No scans matching "${search}"` : "No scans yet this session"}
+              {search
+                ? `No scans matching "${search}"`
+                : activeFilter !== "all"
+                  ? `No ${activeFilter} scans yet`
+                  : "No scans yet this session"}
             </div>
           ) : (
-            <ul className="divide-y divide-[var(--border)]">
+            <div className="flex flex-col gap-2 p-4">
               {filtered.map((entry, i) => {
-                const s = STATUS_ICONS[entry.status];
-                const Icon = s.icon;
+                const config = STATUS_CONFIG[entry.status];
+                const Icon = config.icon;
                 const time = new Date(entry.timestamp);
+                const timeStr = time.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
                 return (
-                  <li key={`${entry.ticketCode}-${i}`} className="flex items-center gap-3 px-4 py-3">
-                    <Icon className={`size-4 shrink-0 ${s.color}`} aria-hidden="true" />
+                  <div
+                    key={`${entry.ticketCode}-${i}`}
+                    className={`flex items-start gap-3 rounded-lg border-l-[3px] bg-white/5 px-3 py-2.5 ${config.border}`}
+                  >
+                    <Icon className={`mt-0.5 size-4 shrink-0 ${config.color}`} aria-hidden="true" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-[var(--foreground)]">
-                        {entry.attendeeName || entry.ticketCode}
+                      <p className="truncate text-sm font-semibold text-[var(--foreground)]">
+                        {entry.attendeeName || "Unknown"}
                       </p>
-                      {entry.attendeeName && (
-                        <p className="truncate text-xs text-[var(--muted-foreground)]">
-                          {entry.ticketCode}{entry.tierName ? ` · ${entry.tierName}` : ""}
-                        </p>
-                      )}
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <TierBadge tier={entry.tierName} />
+                        <span className="font-mono text-xs text-[var(--muted-foreground)]">
+                          {entry.ticketCode}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <time className="text-xs tabular-nums text-[var(--muted-foreground)]">
+                          {timeStr}
+                        </time>
+                        {entry.reason && (
+                          <span className="truncate text-xs text-amber-400/80">
+                            {entry.reason}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <time className="shrink-0 text-sm tabular-nums text-[var(--muted-foreground)]">
-                      {time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                    </time>
-                  </li>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           )}
         </div>
       </div>
