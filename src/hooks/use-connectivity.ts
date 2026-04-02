@@ -15,11 +15,12 @@ export function useConnectivity(): ConnectivityStatus {
     try {
       const start = Date.now();
       // Use gateApi so the Authorization header is sent (raw fetch
-      // without it causes 401 on cross-origin requests).
+      // without it causes 401 on cross-origin requests, which
+      // previously triggered auto-signout via gateApi interceptor).
       const { gateApi } = await import("@/lib/api/client");
       const res = await gateApi("/api/gate/status");
       if (!res.ok) {
-        // Don't treat auth failures as connectivity issues -
+        // Don't treat auth failures as connectivity issues —
         // gateApi handles 401 signout already.
         setStatus("online");
         return;

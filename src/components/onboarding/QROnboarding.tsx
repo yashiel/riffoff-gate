@@ -13,13 +13,20 @@ type ScanState =
   | "error"
   | "permission-denied";
 
+function isAndroid(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /android/i.test(navigator.userAgent);
+}
+
 export function QROnboarding() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanningRef = useRef(false);
+  const fallbackScannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null);
   const [state, setState] = useState<ScanState>("initializing");
   const [errorMessage, setErrorMessage] = useState("");
+  const [useLibScanner, setUseLibScanner] = useState(false);
   const mountedRef = useRef(true);
 
   const stopCamera = useCallback(() => {
@@ -27,6 +34,11 @@ export function QROnboarding() {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
+    }
+    if (fallbackScannerRef.current) {
+      fallbackScannerRef.current.stop().catch(() => {});
+      try { fallbackScannerRef.current.clear(); } catch { /* */ }
+      fallbackScannerRef.current = null;
     }
   }, []);
 
@@ -40,7 +52,6 @@ export function QROnboarding() {
       try {
         const deviceId = getDeviceId();
 
-        // Parse QR: "RO:PIN" format, JSON, or raw text
         let pin = decodedText;
         const gateId = "default";
 
@@ -86,38 +97,47 @@ export function QROnboarding() {
     setErrorMessage("");
 
     try {
-      // Request camera
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
-
-      if (!mountedRef.current) {
-        stream.getTracks().forEach((t) => t.stop());
-        return;
-      }
-
-      streamRef.current = stream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-
-      setState("scanning");
-      scanningRef.current = true;
-
-      // Use BarcodeDetector if available (Chrome, Edge, Samsung Internet)
+      const android = isAndroid();
       const hasBarcodeDetector = "BarcodeDetector" in window;
+      const useNative = hasBarcodeDetector && !android;
 
-      if (hasBarcodeDetector) {
-        // Native BarcodeDetector — fastest, most reliable
+      if (useNative) {
+        // ── Native path (iOS/Desktop) ──
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+        });
+
+        if (!mountedRef.current) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+
+        if (videoRef.current) {
+          const video = videoRef.current;
+          video.srcObject = stream;
+
+          await new Promise<void>((resolve, reject) => {
+            const onLoaded = () => { video.removeEventListener("loadedmetadata", onLoaded); video.removeEventListener("error", onError); resolve(); };
+            const onError = () => { video.removeEventListener("loadedmetadata", onLoaded); video.removeEventListener("error", onError); reject(new Error("Video failed")); };
+            if (video.readyState >= 1) resolve();
+            else { video.addEventListener("loadedmetadata", onLoaded); video.addEventListener("error", onError); }
+          });
+
+          if (!mountedRef.current) return;
+          await video.play();
+        }
+
+        setState("scanning");
+        scanningRef.current = true;
+
         const detector = new (window as unknown as { BarcodeDetector: new (opts: { formats: string[] }) => { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> } }).BarcodeDetector({
           formats: ["qr_code"],
         });
 
         const scanLoop = async () => {
           if (!scanningRef.current || !videoRef.current || !mountedRef.current) return;
-
           try {
             const barcodes = await detector.detect(videoRef.current);
             if (barcodes.length > 0) {
@@ -125,32 +145,30 @@ export function QROnboarding() {
               void handleDecode(barcodes[0].rawValue);
               return;
             }
-          } catch {
-            // Detection failed this frame — continue
-          }
-
-          if (scanningRef.current) {
-            requestAnimationFrame(scanLoop);
-          }
+          } catch { /* continue */ }
+          if (scanningRef.current) requestAnimationFrame(scanLoop);
         };
 
         requestAnimationFrame(scanLoop);
       } else {
-        // Fallback: html5-qrcode for browsers without BarcodeDetector (Firefox, older Safari)
+        // ── html5-qrcode path (Android + Firefox + older browsers) ──
+        setUseLibScanner(true);
+
         const { Html5Qrcode } = await import("html5-qrcode");
 
-        // Stop the getUserMedia stream since html5-qrcode manages its own
-        stream.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
+        // Wait for container to mount after state update
+        await new Promise((r) => setTimeout(r, 50));
+        if (!mountedRef.current) return;
 
-        const el = document.getElementById("qr-fallback");
+        const el = document.getElementById("qr-onboard-region");
         if (!el) return;
 
-        const scanner = new Html5Qrcode("qr-fallback", { verbose: false });
+        const scanner = new Html5Qrcode("qr-onboard-region", { verbose: false });
+        fallbackScannerRef.current = scanner as unknown as typeof fallbackScannerRef.current;
 
         await scanner.start(
           { facingMode: "environment" },
-          { fps: 15, qrbox: { width: 250, height: 250 } },
+          { fps: 15, qrbox: { width: 220, height: 220 } },
           (text) => {
             scanningRef.current = false;
             scanner.stop().catch(() => {});
@@ -158,6 +176,9 @@ export function QROnboarding() {
           },
           () => {}
         );
+
+        setState("scanning");
+        scanningRef.current = true;
       }
     } catch (err) {
       if (!mountedRef.current) return;
@@ -198,24 +219,28 @@ export function QROnboarding() {
         <div className="qr-corner-tr" />
         <div className="qr-corner-bl" />
 
-        {/* Scan line animation */}
-        {state === "scanning" && <div className="qr-scanline" />}
+        {/* Scan line animation (native path only) */}
+        {state === "scanning" && !useLibScanner && <div className="qr-scanline" />}
 
-        {/* Native video element for BarcodeDetector */}
-        <video
-          ref={videoRef}
-          className="absolute inset-0 w-full h-full object-cover rounded-2xl"
-          playsInline
-          muted
-          autoPlay
-        />
+        {/* Native video element (iOS/Desktop) */}
+        {!useLibScanner && (
+          // eslint-disable-next-line jsx-a11y/media-has-caption
+          <video
+            ref={videoRef}
+            className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+            playsInline
+            muted
+            autoPlay
+          />
+        )}
 
-        {/* Fallback container for html5-qrcode */}
-        <div
-          id="qr-fallback"
-          className="absolute inset-0 rounded-2xl overflow-hidden"
-          style={{ display: "BarcodeDetector" in (typeof window !== "undefined" ? window : {}) ? "none" : "block" }}
-        />
+        {/* html5-qrcode container (Android + fallback) */}
+        {useLibScanner && (
+          <div
+            id="qr-onboard-region"
+            className="absolute inset-0 rounded-2xl overflow-hidden"
+          />
+        )}
 
         {/* Overlay for non-scanning states */}
         {state !== "scanning" && state !== "initializing" && (

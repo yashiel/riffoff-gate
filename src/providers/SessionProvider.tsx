@@ -5,7 +5,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -17,6 +16,7 @@ import {
 } from "@/lib/session/store";
 import { gateApi } from "@/lib/api/client";
 import { useRouter } from "next/navigation";
+import { useGateSSEContext } from "./GateSSEProvider";
 
 interface SessionContextValue {
   session: GateSessionData | null;
@@ -34,16 +34,22 @@ export function useSession() {
   return useContext(SessionContext);
 }
 
-/** Keepalive interval — ping server every 10 seconds */
-const KEEPALIVE_INTERVAL_MS = 10_000;
-
+/**
+ * Session provider — verifies session on mount, then relies on SSE for:
+ *   - Keepalive (SSE connection itself updates lastSeenAt on server)
+ *   - Revocation detection (SSE emits `revoked` event)
+ *
+ * No more 10-second polling interval.
+ * Service Worker keepalive is kept as a fallback when app is minimized
+ * (SSE disconnects when the browser suspends the tab).
+ */
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<GateSessionData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const keepaliveRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { revoked } = useGateSSEContext();
 
-  // Verify session on mount + start keepalive
+  // Verify session on mount (one-time check)
   useEffect(() => {
     let cancelled = false;
 
@@ -64,9 +70,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           router.push("/");
         }
       } catch {
+        // Network error on initial verify — still show stored session
+        // SSE will detect revocation later
         if (!cancelled) {
-          clearSession();
-          router.push("/");
+          const stored2 = getSession();
+          if (stored2) setSession(stored2);
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -75,7 +83,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     verify();
 
-    // Register keepalive with Service Worker (runs even when app is minimized)
+    // Register SW keepalive as fallback (for when app is minimized / SSE disconnects)
     const token = getSessionToken();
     if (token && "serviceWorker" in navigator && navigator.serviceWorker.controller) {
       navigator.serviceWorker.controller.postMessage({
@@ -94,30 +102,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    // Also keep a foreground interval as fallback (SW may not be active yet)
-    keepaliveRef.current = setInterval(async () => {
-      const t = getSessionToken();
-      if (!t) return;
-
-      try {
-        const res = await gateApi("/api/gate/status");
-        if (!res.ok && (res.status === 401 || res.status === 403)) {
-          clearSession();
-          setSession(null);
-          if (typeof window !== "undefined") window.location.href = "/";
-        }
-      } catch {
-        // Network error — keep trying
-      }
-    }, KEEPALIVE_INTERVAL_MS);
-
     return () => {
       cancelled = true;
-      if (keepaliveRef.current) clearInterval(keepaliveRef.current);
     };
   }, [router]);
 
-  // Logout — notify server to revoke session, stop keepalive, clear locally
+  // React to SSE revocation events
+  useEffect(() => {
+    if (revoked) {
+      clearSession();
+      setSession(null);
+      if (typeof window !== "undefined") window.location.href = "/";
+    }
+  }, [revoked]);
+
+  // Logout — notify server to revoke session, clear locally
   const logout = useCallback(async () => {
     // Stop SW keepalive
     if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
@@ -133,7 +132,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     clearSession();
     setSession(null);
-    if (keepaliveRef.current) clearInterval(keepaliveRef.current);
     router.push("/");
   }, [router]);
 

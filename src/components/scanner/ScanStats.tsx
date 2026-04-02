@@ -29,11 +29,6 @@ export function ScanStats({ checkedIn, total }: ScanStatsProps) {
           <span className="font-mono text-sm font-semibold tabular-nums text-[var(--foreground)]">
             {percentage}%
           </span>
-          {total > 0 && checkedIn / total >= 0.9 && (
-            <span className="rounded-full bg-[#f59e0b]/15 px-2 py-0.5 text-xs font-semibold text-[#f59e0b]">
-              NEAR CAPACITY
-            </span>
-          )}
         </div>
       </div>
 

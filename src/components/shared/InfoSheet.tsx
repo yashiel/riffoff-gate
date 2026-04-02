@@ -152,7 +152,6 @@ export function InfoSheet({ open, onClose, onLogout, session }: InfoSheetProps) 
               value={session ? "Connected" : "Disconnected"}
               valueColor={session ? "text-emerald-400" : "text-red-400"}
             />
-            <InfoRow icon={Clock} label="Scan result display" value="5s" />
           </div>
         </div>
 
