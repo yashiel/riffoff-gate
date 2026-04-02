@@ -58,9 +58,9 @@ async function sendKeepalive() {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${sessionToken}`,
-        "X-Screen-Size": "sw",
-        "X-Timezone": "sw",
-        "X-Language": "sw",
+        "X-Screen-Size": "unknown",
+        "X-Timezone": "unknown",
+        "X-Language": "unknown",
       },
     });
 
