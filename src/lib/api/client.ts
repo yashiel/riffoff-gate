@@ -10,6 +10,9 @@ const RETRYABLE_PATHS = ["/api/gate/checkin", "/api/gate/status"];
 const MAX_RETRIES = 2;
 const RETRY_DELAYS = [1000, 2000];
 
+/** Paths where 401/403 should NOT trigger auto-logout (health checks, background pings) */
+const NO_LOGOUT_PATHS = ["/api/gate/status"];
+
 /**
  * Gate API client — sends requests to the main app's API.
  *
@@ -95,9 +98,10 @@ async function gateApiFetch(
       setSessionToken(newToken);
     }
 
-    // Only redirect on auth failure for session-protected endpoints, not auth endpoints
+    // Auto-logout on auth failure — but NOT for auth endpoints or background health checks
     const isAuthEndpoint = path.includes("/auth/");
-    if ((res.status === 401 || res.status === 403) && !isAuthEndpoint) {
+    const isNoLogoutPath = NO_LOGOUT_PATHS.some((p) => path.startsWith(p));
+    if ((res.status === 401 || res.status === 403) && !isAuthEndpoint && !isNoLogoutPath) {
       clearSession();
       if (typeof window !== "undefined") window.location.href = "/";
       throw new Error("Session expired");
