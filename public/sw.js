@@ -28,6 +28,12 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("message", (event) => {
   const data = event.data;
 
+  // Force-activate when app requests it (skip waiting phase)
+  if (data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+    return;
+  }
+
   if (data.type === "KEEPALIVE_START") {
     apiBaseUrl = data.apiBaseUrl || "";
     sessionToken = data.sessionToken || "";
