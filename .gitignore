@@ -2,10 +2,8 @@
 .next
 node_modules
 
-# Environment files (use Vercel env vars instead)
+# Environment files (use Vercel env vars for production)
 .env
 .env.local
 .env.production
 .env.*.local
-.env.prod
-.env.vercel

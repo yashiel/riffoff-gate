@@ -1,4 +1,4 @@
-const CACHE_NAME = "riffoff-gate-v4";
+const CACHE_NAME = "riffoff-gate-v5";
 const APP_SHELL = ["/", "/scan"];
 
 // ─── Keepalive Config ───
