@@ -29,14 +29,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        {/* Static inline script — no user input, safe from XSS. Nukes stale SW on iOS. */}
-        <script dangerouslySetInnerHTML={{ __html: [
-          "if('serviceWorker' in navigator){",
-          "navigator.serviceWorker.getRegistrations().then(function(r){",
-          "r.forEach(function(s){s.unregister()})});",
-          "caches.keys().then(function(k){",
-          "k.forEach(function(n){caches.delete(n)})});}",
-        ].join("") }} />
       </head>
       <body className="safe-top safe-bottom" suppressHydrationWarning>
         {children}

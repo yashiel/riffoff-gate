@@ -1,4 +1,4 @@
-const CACHE_NAME = "riffoff-gate-v5";
+const CACHE_NAME = "riffoff-gate-v4";
 const APP_SHELL = ["/", "/scan"];
 
 // ─── Keepalive Config ───
@@ -27,12 +27,6 @@ self.addEventListener("activate", (event) => {
 // ─── Message handler — receive keepalive config from the app ───
 self.addEventListener("message", (event) => {
   const data = event.data;
-
-  // Force-activate when app requests it (skip waiting phase)
-  if (data.type === "SKIP_WAITING") {
-    self.skipWaiting();
-    return;
-  }
 
   if (data.type === "KEEPALIVE_START") {
     apiBaseUrl = data.apiBaseUrl || "";
@@ -64,9 +58,9 @@ async function sendKeepalive() {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${sessionToken}`,
-        "X-Screen-Size": "unknown",
-        "X-Timezone": "unknown",
-        "X-Language": "unknown",
+        "X-Screen-Size": "sw",
+        "X-Timezone": "sw",
+        "X-Language": "sw",
       },
     });
 
