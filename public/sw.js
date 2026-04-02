@@ -53,7 +53,10 @@ self.addEventListener("message", (event) => {
 async function sendKeepalive() {
   if (!apiBaseUrl || !sessionToken) return;
 
+  const clients = await self.clients.matchAll();
+
   try {
+    const start = Date.now();
     const res = await fetch(`${apiBaseUrl}/api/gate/status`, {
       method: "GET",
       headers: {
@@ -66,15 +69,25 @@ async function sendKeepalive() {
 
     // If session was revoked, notify all clients
     if (res.status === 401 || res.status === 403) {
-      const clients = await self.clients.matchAll();
       for (const client of clients) {
         client.postMessage({ type: "SESSION_REVOKED" });
       }
       if (keepaliveInterval) clearInterval(keepaliveInterval);
       keepaliveInterval = null;
+      return;
+    }
+
+    // Broadcast connectivity status to all clients
+    const elapsed = Date.now() - start;
+    const status = elapsed > 2000 ? "degraded" : "online";
+    for (const client of clients) {
+      client.postMessage({ type: "CONNECTIVITY_STATUS", status });
     }
   } catch {
-    // Network error — keep trying, device might be temporarily offline
+    // Network error — broadcast offline status
+    for (const client of clients) {
+      client.postMessage({ type: "CONNECTIVITY_STATUS", status: "offline" });
+    }
   }
 }
 

@@ -16,6 +16,7 @@ import { InfoSheet } from "@/components/shared/InfoSheet";
 import { getSession, clearSession } from "@/lib/session/store";
 import type { GateSessionData } from "@/lib/session/store";
 import { gateApi } from "@/lib/api/client";
+import { enqueueCheckIn, flushQueue, getPendingCount } from "@/lib/offline/queue";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import { useAudio } from "@/hooks/use-audio";
 import { useConnectivity } from "@/hooks/use-connectivity";
@@ -30,8 +31,7 @@ export default function ScanPage() {
   const [checkedIn, setCheckedIn] = useState(0);
   const [total, setTotal] = useState(0);
   const [scanRate, setScanRate] = useState(0);
-  // Placeholder: will reflect offline queue length once offline sync is implemented
-  const [pendingSync] = useState(0);
+  const [pendingSync, setPendingSync] = useState(0);
   const scanTimesRef = useRef<number[]>([]);
   const flashKeyRef = useRef(0);
 
@@ -48,7 +48,7 @@ export default function ScanPage() {
     }
   }, [sseStats]);
 
-  // Check session on mount
+  // Check session on mount + load pending count
   useEffect(() => {
     const s = getSession();
     if (!s) {
@@ -56,7 +56,30 @@ export default function ScanPage() {
       return;
     }
     setSession(s);
+    getPendingCount().then(setPendingSync).catch(() => {});
   }, [router]);
+
+  // Flush offline queue when connectivity recovers
+  useEffect(() => {
+    if (connectivity !== "online") return;
+    let cancelled = false;
+
+    const flush = async () => {
+      const synced = await flushQueue((checkIns) =>
+        gateApi("/api/gate/checkin/batch", {
+          method: "POST",
+          body: JSON.stringify({ checkIns }),
+        }),
+      );
+      if (!cancelled && synced > 0) {
+        const remaining = await getPendingCount();
+        setPendingSync(remaining);
+      }
+    };
+
+    flush().catch(() => {});
+    return () => { cancelled = true; };
+  }, [connectivity]);
 
   // Calculate scan rate (scans per minute over last 60s)
   const updateRate = useCallback(() => {
@@ -120,9 +143,16 @@ export default function ScanPage() {
           });
         }
       } catch {
+        // Queue for offline sync instead of losing the scan
+        const scannedAt = new Date().toISOString();
+        enqueueCheckIn(decodedText, scannedAt)
+          .then(() => getPendingCount())
+          .then(setPendingSync)
+          .catch(() => {});
+
         setScanResult({
           status: "invalid",
-          reason: connectivity === "offline" ? "No connection" : "Scan failed",
+          reason: connectivity === "offline" ? "Queued for sync" : "Queued — will retry",
         });
         playError();
         flashKeyRef.current += 1;

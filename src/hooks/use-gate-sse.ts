@@ -49,6 +49,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 const MAX_RECONNECT_DELAY = 30_000;
 /** Base reconnection delay (1 second) */
 const BASE_RECONNECT_DELAY = 1_000;
+/** If no event received within this window, assume connection stalled (server heartbeats every 15s) */
+const HEARTBEAT_TIMEOUT_MS = 45_000;
 
 /**
  * SSE hook for the scanner app.
@@ -71,6 +73,7 @@ export function useGateSSE(): GateSSEState {
   const esRef = useRef<EventSource | null>(null);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heartbeatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const connect = useCallback(() => {
     const token = getSessionToken();
@@ -89,12 +92,32 @@ export function useGateSSE(): GateSSEState {
     const es = new EventSource(url);
     esRef.current = es;
 
+    // Heartbeat watchdog — if no event for 45s, connection is stalled
+    const resetHeartbeat = () => {
+      if (heartbeatTimerRef.current) clearTimeout(heartbeatTimerRef.current);
+      heartbeatTimerRef.current = setTimeout(() => {
+        // Connection stalled — force reconnect
+        es.close();
+        esRef.current = null;
+        setConnectionState("reconnecting");
+        const delay = Math.min(
+          BASE_RECONNECT_DELAY * Math.pow(2, retryCountRef.current) + Math.random() * 1000,
+          MAX_RECONNECT_DELAY,
+        );
+        retryCountRef.current++;
+        retryTimerRef.current = setTimeout(connect, delay);
+      }, HEARTBEAT_TIMEOUT_MS);
+    };
+    resetHeartbeat();
+
     es.addEventListener("connected", () => {
       setConnectionState("connected");
       retryCountRef.current = 0; // Reset backoff on successful connect
+      resetHeartbeat();
     });
 
     es.addEventListener("stats", (e) => {
+      resetHeartbeat();
       try {
         setStats(JSON.parse(e.data));
       } catch { /* malformed data */ }
@@ -123,6 +146,7 @@ export function useGateSSE(): GateSSEState {
     });
 
     es.addEventListener("heartbeat", (e) => {
+      resetHeartbeat();
       try {
         const data = JSON.parse(e.data);
         setServerTime(data.serverTime);
@@ -168,6 +192,9 @@ export function useGateSSE(): GateSSEState {
       }
       if (retryTimerRef.current) {
         clearTimeout(retryTimerRef.current);
+      }
+      if (heartbeatTimerRef.current) {
+        clearTimeout(heartbeatTimerRef.current);
       }
     };
   }, [connect]);
