@@ -166,7 +166,8 @@ export function QRViewport({ onScan, active }: QRViewportProps) {
             }
           };
 
-          scanLoop();
+          // Wait one frame for video to render before starting detection
+          requestAnimationFrame(scanLoop);
         } else {
           // ── html5-qrcode (Android + Firefox + older browsers) ──
           // This library manages its own video element with proper

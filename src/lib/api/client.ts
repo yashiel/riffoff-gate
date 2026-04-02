@@ -36,7 +36,11 @@ export async function gateApi(
       return res;
     } catch (err) {
       lastError = err;
-      // Don't retry auth failures or aborts (timeout)
+      // Don't retry auth failures (session expired), timeouts, or aborts
+      const message = err instanceof Error ? err.message : "";
+      if (message === "Session expired" || message === "Request timed out") {
+        throw err;
+      }
       if (err instanceof DOMException && err.name === "AbortError") {
         throw new Error("Request timed out");
       }
