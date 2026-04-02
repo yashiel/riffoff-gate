@@ -30,7 +30,7 @@ export default function ScanPage() {
   const [checkedIn, setCheckedIn] = useState(0);
   const [total, setTotal] = useState(0);
   const [scanRate, setScanRate] = useState(0);
-  // TODO: wire to offline queue length when offline sync is implemented
+  // Placeholder: will reflect offline queue length once offline sync is implemented
   const [pendingSync] = useState(0);
   const scanTimesRef = useRef<number[]>([]);
   const flashKeyRef = useRef(0);
