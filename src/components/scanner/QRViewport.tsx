@@ -124,10 +124,12 @@ export function QRViewport({ onScan, active }: QRViewportProps) {
             }
 
             if (scanningRef.current && !cancelled) {
-              requestAnimationFrame(scanLoop);
+              // Cap at ~30 FPS to save battery (QR codes don't need 60 FPS)
+              setTimeout(scanLoop, 33);
             }
           };
 
+          // Wait one frame for video to render before starting detection
           requestAnimationFrame(scanLoop);
         } else {
           // ── Fallback: html5-qrcode (Firefox, older browsers) ──
